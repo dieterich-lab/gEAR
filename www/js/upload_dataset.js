@@ -171,7 +171,10 @@ function validate_expression(filename) {
     $.ajax({
         url: "./cgi/validate_expression.cgi", //TODO write this file
         type: "POST",
-        data: {"filename": filename, "session_id": CURRENT_USER.session_id},
+        data: {"filename": filename,
+               "session_id": CURRENT_USER.session_id,
+               "dataset_id": dataset_uid
+              },
         dataType: "json",
         success: function(data, textStatus, jqXHR) {
             if (data['success'] == 1) {
