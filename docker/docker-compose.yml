@@ -6,10 +6,10 @@ networks:
 services:
   db:
     environment:
-      MYSQL_DATABASE: gear_portal
-      MYSQL_USER: gear
-      MYSQL_PASSWORD: gearadmin
-      MYSQL_RANDOM_ROOT_PASSWORD: "true"
+      MYSQL_DATABASE: [mysql_db]
+      MYSQL_USER: [mysql_user]
+      MYSQL_PASSWORD: [mysql_pass]
+      MYSQL_ROOT_PASSWORD: [root_pass]
     image: mysql:5.7
     networks:
       - gear

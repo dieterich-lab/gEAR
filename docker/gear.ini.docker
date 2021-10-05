@@ -2,7 +2,7 @@
 user = [user]
 password = [password]
 host = db
-name = [database]
+name = [db]
 
 [email_sender]
 address = [gear_email]
