@@ -6,10 +6,10 @@ networks:
 services:
   db:
     environment:
-      MYSQL_DATABASE: [mysql_db]
-      MYSQL_USER: [mysql_user]
-      MYSQL_PASSWORD: [mysql_pass]
-      MYSQL_ROOT_PASSWORD: [root_pass]
+      MYSQL_DATABASE: [database]
+      MYSQL_USER: [user]
+      MYSQL_PASSWORD: [user_pw]
+      MYSQL_ROOT_PASSWORD: [root_pw]
     image: mysql:5.7
     networks:
       - gear

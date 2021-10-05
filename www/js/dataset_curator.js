@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /*
  This script relies on the source having also included the

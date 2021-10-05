@@ -200,6 +200,7 @@ $('#navigation_bar').on('click', '#btn_sign_in', function(e){
                 CURRENT_USER.user_name = data['name'];
                 CURRENT_USER.session_id = data['session_id'];
                 CURRENT_USER.profile = data['gear_default_domain'];
+                CURRENT_USER.id = data['user_id'];
 
                 if (data['is_admin'] == 1 ) {
                     CURRENT_USER.is_admin = true;
@@ -209,6 +210,7 @@ $('#navigation_bar').on('click', '#btn_sign_in', function(e){
 
                 $('span.user_logged_in').text(CURRENT_USER.user_name);
                 Cookies.set('gear_session_id', CURRENT_USER.session_id, { expires: 7 });
+                session_id = Cookies.get('gear_session_id');
                 Cookies.set('gear_default_domain', CURRENT_USER.profile);
 
                 // do we process the current page or reload?
@@ -239,7 +241,9 @@ $('#navigation_bar').on('click', '#btn_sign_out', function(e){
     $('#search_gene_symbol').focus();
 
     Cookies.remove('gear_session_id');
-    USER_LOGGED_IN = null;
+    // these should be cleared upon page refresh but adding for sanity's sake
+    session_id = undefined;
+    CURRENT_USER = undefined;
     e.preventDefault();
 
     // prevents popover from popping up just before changing url. bootstrap bug?
@@ -263,6 +267,7 @@ function handle_login_ui_updates() {
             document.URL.indexOf("user_profile.html") >= 0 ||
             document.URL.indexOf("upload_epigenetic_data.html") >= 0 ||
             document.URL.indexOf("dataset_curator.html") >= 0 ||
+            document.URL.indexOf("multigene_curator.html") >= 0 ||
             document.URL.indexOf("epiviz_panel_designer.html")  >= 0) {
             $('div#login_warning').show();
             $('div#login_checking').hide();
@@ -316,7 +321,7 @@ function handle_login_ui_updates() {
             load_preliminary_data();
             $("#controls_profile_nouser_c").remove();
             $("#your_dataset_filter").show();
-            
+
         } else if (document.URL.indexOf("manual.html") >= 0) {
             $('a#manual_link').parent().addClass('active');
 
@@ -331,6 +336,7 @@ function handle_login_ui_updates() {
             document.URL.indexOf("user_profile.html") >= 0 ||
             document.URL.indexOf("upload_epigenetic_data.html") >= 0 ||
             document.URL.indexOf("dataset_curator.html") >= 0 ||
+            document.URL.indexOf("multigene_curator.html") >= 0 ||
             document.URL.indexOf("epiviz_panel_designer.html") >= 0) {
             $('div#login_warning').hide();
             $('div#login_checking').hide();

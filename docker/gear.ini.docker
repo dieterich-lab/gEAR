@@ -1,8 +1,8 @@
 [database]
 user = [user]
-password = [password]
+password = [pass]
 host = db
-name = [db]
+name = [db_name]
 
 [email_sender]
 address = [gear_email]

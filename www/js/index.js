@@ -1,6 +1,4 @@
 var search_results = [];
-var layouts = []; //populated on load by loads_layouts();
-var gene_carts = [];
 
 // key dataset_id, value = Snap paths
 var svgs = {};
@@ -13,11 +11,19 @@ var PREVIOUS_SELECTED_RECORD_NUM = null;
 var SCORING_METHOD = 'gene';
 var SELECTED_GENE = null;
 
-var share_id = null; //from permalink
+var share_id = null; //from permalink - dataset share ID
+var layout_id = null; //from permalink - profile grid layout ID
 var permalinked_dataset_id = null; //holds dataset_id obtained from load_dataset_frames()
+var multigene = false;  // Is this a multigene search?
+var multigene_toggled = false;  // If true, then layouts will be reloaded, toggle between single-gene and multigene views
 
 var annotation_panel = new FunctionalAnnotationPanel();
 var dataset_collection_panel = new DatasetCollectionPanel();
+
+var profile_tree = new ProfileTree({treeDiv: '#profile_tree'});
+var selected_profile_tree = new ProfileTree({treeDiv: '#selected_profile_tree'});
+
+var gene_cart_tree = new GeneCartTree({treeDiv: '#selected_gene_cart_tree'});
 
 var search_result_postselection_functions = [];
 
@@ -27,13 +33,22 @@ window.onload=function() {
 
     // Was a permalink found?
     share_id = getUrlParameter('share_id');
-    scope = "permalink";
-    if (!share_id) {
-        // layout_id is a share_id for the profile layout
-        share_id = getUrlParameter('layout_id');
+    // layout_id is a permalink id for the profile layout
+    layout_id = getUrlParameter('layout_id');
+
+    let permalink_id = null;
+    let scope = null;
+
+    // Dataset share ID takes priority over a layout ID
+    if (share_id) {
+        permalink_id = share_id;
+        scope = "permalink";
+    } else if (layout_id) {
+        permalink_id = layout_id;
         scope = "profile";
     }
-    if (share_id) {
+
+    if (permalink_id) {
         //hide site_into and display the permalink message
         $('#intro_content').hide();
         $('#viewport_intro').children().hide();
@@ -41,12 +56,13 @@ window.onload=function() {
 
         $('#leftbar_main').show();
         $('#permalink_intro_c').show();
-        // validate the share_id. runs load_dataset_frames() on success
-        validate_permalink(share_id, scope);
+        // validate the dataset/layout share_id. runs load_dataset_frames() on success
+        validate_permalink(permalink_id, scope);
     } else {
         get_index_info();
-        load_gene_carts();
     }
+
+    load_gene_carts();
 
     // Was help_id found?
     var help_id = getUrlParameter('help_id');
@@ -56,11 +72,19 @@ window.onload=function() {
 
     var permalinked_gene_symbol = getUrlParameter('gene_symbol');
     var permalinked_gsem = getUrlParameter('gene_symbol_exact_match');
+    var permalinked_multigene_plots = getUrlParameter('multigene_plots');
+    multigene = (permalinked_multigene_plots && permalinked_multigene_plots === "1")
+
     if (permalinked_gene_symbol) {
         $("#search_gene_symbol_intro").val(permalinked_gene_symbol);
 
         if (permalinked_gsem && permalinked_gsem === "1") {
             set_exact_match('on');
+        }
+
+        if (multigene) {
+            set_multigene_plots('on');
+            dataset_collection_panel.load_frames({multigene});
         }
 
         sleep(1000).then(() => {
@@ -80,6 +104,31 @@ window.onload=function() {
         } else {
             // else it was off, so turn it on
             set_exact_match('on');
+        }
+    });
+
+    // If MG search icon on front page is clicked
+    $('#multigene_search_icon').click(function() {
+        // handle if it was already in the on position
+        if ( $('#multigene_plots_input').prop("checked") ) {
+            set_multigene_plots('off');
+        } else {
+            // else it was off, so turn it on
+            set_multigene_plots('on');
+        }
+    });
+
+    // If toggle is clicked, change some display things
+    $('#multigene_plots_input').change(function() {
+        multigene_toggled = true;
+        if ( $('#multigene_plots_input').prop("checked") ) {
+            // MG enabled
+            $('#search_results_scrollbox').hide();
+            $('#multigene_search_indicator').show();
+        } else {
+            // MG disabled
+            $('#search_results_scrollbox').show();
+            $('#multigene_search_indicator').hide();
         }
     });
 
@@ -117,14 +166,23 @@ window.onload=function() {
         window.location.replace('./upload_epigenetic_data.html');
     });
 
+    $('.tool-launcher').click(function() {
+        if ($(this).data('tool-name') == 'comparison') {
+            window.location.replace('./compare_datasets.html');
+
+        } else if ($(this).data('tool-name') == 'workbench') {
+            window.location.replace('./analyze_dataset.html');
+        }
+    });
+
     // add post-page load listeners
     $( "#dataset_zoomed_zoom_out_control" ).click(function() {
         zoom_out_dataset();
     });
 
     $(document).on('click', '.domain_choice_c', function() {
-        dataset_collection_panel.set_layout($(this).data('profile-id'), $(this).data('profile-label'), true);
-        share_id = $(this).data('profile-share-id');
+        dataset_collection_panel.set_layout($(this).data('profile-id'), $(this).data('profile-label'), true, multigene);
+        layout_id = $(this).data('profile-share-id');
     });
 
     $( document ).on("click", ".scope_choice", function() {
@@ -143,6 +201,22 @@ window.onload=function() {
         $("#tip").css("left", xpos + "px" );
         $("#tip").css("top" , ypos + "px" );
     });
+
+    if (multigene) {
+        // Change search results to show multigene version
+        $('#multigene_plots_input').change();
+    }
+
+    // Create observer to watch if user changes (ie. successful login does not refresh page)
+    // See: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
+
+    // Select the node that will be observed for mutations
+    const target_node = document.getElementById('loggedin_controls');
+    // Create an observer instance linked to the callback function
+    const observer = new MutationObserver(reload_trees);
+    // For the "config" settings, do not monitor the subtree of nodes as that will trigger the callback multiple times.
+    // Just seeing #loggedin_controls go from hidden (not logged in) to shown (logged in) is enough to trigger.
+    observer.observe(target_node, { attributes: true });
 };
 
 function get_index_info() {
@@ -252,6 +326,7 @@ $(document).on('click', 'button#save_user_new_pass', function(){
 });
 
 function validate_permalink(share_id, scope) {
+    // Works for dataset or layout-based share IDs, which is differentiated by scope
     $.ajax({
         url : './cgi/validate_share_id.cgi',
         type: "POST",
@@ -259,12 +334,14 @@ function validate_permalink(share_id, scope) {
         dataType:"json",
         success: function(data, textStatus, jqXHR) {
             if ( data['success'] == 1 ) {
+
+                const opts = (scope == "permalink") ? { share_id, multigene } : { multigene };
                 // query the db and load the images, including permalink dataset
-                dataset_collection_panel.load_frames({ share_id });
+                dataset_collection_panel.load_frames(opts);
 
             } else {
                 // query the db and load the images
-                dataset_collection_panel.load_frames();
+                dataset_collection_panel.load_frames({multigene});
                 $('.alert-container').html('<div class="alert alert-danger alert-dismissible" role="alert">' +
                     '<button type="button" class="close close-alert" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
                     '<p class="alert-message"><strong>Oops! </strong> ' + data["error"] + '</p></div>').show();
@@ -286,7 +363,7 @@ function load_layouts() {
         $("#intro_selected_profile_warning").show();
     }
 
-    //organize user and domain profiles in x-editable format
+    //organize user and domain profiles in a tree format
     $.ajax({
         url: './cgi/get_user_layouts.cgi',
         type: 'post',
@@ -301,11 +378,11 @@ function load_layouts() {
                 3.  Admin's active domain
              */
 
-            var domain_profiles = [];
-            var user_profiles = [];
+            let domain_profiles = [];
+            let user_profiles = [];
 
-            var active_layout_id = null;
-            var active_layout_label = null;
+            let active_layout_id = null;
+            let active_layout_label = null;
 
             // Pass through once to sort domains from user profiles AND see if it matches a shared layout
             $.each(data['layouts'], function(i, item){
@@ -318,9 +395,17 @@ function load_layouts() {
                 if (item['share_id'] == layout_share_id) {
                     active_layout_id = item['id'];
                     active_layout_label = item['label'];
-                    share_id = item['share_id'];
+                    layout_id = item['share_id'];
                 }
             });
+
+            // Generate the tree structure for the layouts
+            profile_tree.domainProfiles = domain_profiles;
+            profile_tree.userProfiles = user_profiles;
+            profile_tree.generateTree();
+            selected_profile_tree.domainProfiles = domain_profiles;
+            selected_profile_tree.userProfiles = user_profiles;
+            selected_profile_tree.generateTree();
 
             // pass through again and look for one set by a cookie
             if (active_layout_id == null) {
@@ -328,7 +413,7 @@ function load_layouts() {
                     if (item['label'] == CURRENT_USER.profile) {
                         active_layout_id = item['id'];
                         active_layout_label = item['label'];
-                        share_id = item['share_id'];
+                        layout_id = item['share_id'];
                         return false;
                     }
                 });
@@ -340,7 +425,7 @@ function load_layouts() {
                     if ( item['is_domain'] == 0 && item['is_current'] == 1 ) {
                         active_layout_id = item['id'];
                         active_layout_label = item['label'];
-                        share_id = item['share_id'];
+                        layout_id = item['share_id'];
                         return false;
                     }
                 });
@@ -352,34 +437,19 @@ function load_layouts() {
                     if ( item['is_domain'] == 1 && item['is_current'] == 1 ) {
                         active_layout_id = item['id'];
                         active_layout_label = item['label'];
-                        share_id = item['share_id'];
+                        layout_id = item['share_id'];
                         return false;
                     }
                 });
             }
 
-            var formattedData = [{text: 'Public profiles', children: domain_profiles}];
-
-            if (user_profiles.length > 0) {
-                formattedData.push({text: 'Your profiles', children: user_profiles});
-            }
-
-            var layout_items_tmpl = $.templates("#tmpl_intro_search_layouts");
-
-            var domain_items_html = layout_items_tmpl.render(domain_profiles);
-            $(domain_items_html).insertAfter('#intro_domains_header');
-
-            var profile_items_html = layout_items_tmpl.render(user_profiles);
-            $(profile_items_html).insertAfter('#intro_profiles_header');
-
-            //Serves as source for #selected_profile editable
-            layouts = formattedData;
-
-            dataset_collection_panel.set_layout(active_layout_id, active_layout_label, true);
+            dataset_collection_panel.set_layout(active_layout_id, active_layout_label, true, multigene);
 
             d.resolve();
         },
         error: function (jqXHR, textStatus, errorThrown) {
+            profile_tree.generateTree();
+            selected_profile_tree.generateTree();
             display_error_bar(jqXHR.status + ' ' + errorThrown.name, 'Error loading layouts.');
             d.fail();
         }
@@ -395,6 +465,7 @@ function load_gene_carts() {
   if (!session_id) {
       //User is not logged in. Hide gene carts container
       $("#selected_gene_cart_c").hide();
+      gene_cart_tree.generateTree();
       d.resolve();
   } else {
       $("#selected_gene_cart_c").show(); //Show if hidden
@@ -404,8 +475,7 @@ function load_gene_carts() {
         data: { 'session_id': session_id },
         dataType: 'json',
         success: function(data, textStatus, jqXHR){ //source https://stackoverflow.com/a/20915207/2900840
-            var user_gene_carts = [];
-            var formattedData = [];
+            let user_gene_carts = [];
 
             if (data['gene_carts'].length > 0) {
                 //User has some profiles
@@ -414,22 +484,100 @@ function load_gene_carts() {
 
                 });
 
-                formattedData = [{text: 'My gene carts', children: user_gene_carts }];
+                // No domain gene carts yet
+                gene_cart_tree.userGeneCarts = user_gene_carts;
+                gene_cart_tree.generateTree();
+
             } else {
                 $("#selected_gene_cart_c").hide();
             }
 
-            //Serves as source for #selected_gene_cart editable
-            gene_carts = formattedData;
             d.resolve();
         },
         error: function (jqXHR, textStatus, errorThrown) {
+            gene_cart_tree.generateTree();
             display_error_bar(jqXHR.status + ' ' + errorThrown.name);
             d.fail();
         }
       });
   }
   d.promise();
+}
+
+// If user changes, update genecart/profile trees
+function reload_trees(){
+    //Profiles are generated regardless if user is logged in or not
+    $.ajax({
+        url: './cgi/get_user_layouts.cgi',
+        type: 'post',
+        data: { 'session_id': session_id},
+        async: false,
+        dataType: 'json',
+        success: function(data, textStatus, jqXHR) {
+
+            let domain_profiles = [];
+            let user_profiles = [];
+
+            // Pass through once to sort domains from user profiles AND see if it matches a shared layout
+            $.each(data['layouts'], function(i, item){
+                if ( item['is_domain'] == 1 ) {
+                    domain_profiles.push({value: item['id'], text: item['label'], share_id: item['share_id'] });
+                } else {
+                    user_profiles.push({value: item['id'], text: item['label'], share_id: item['share_id']  });
+                }
+            });
+
+            // Generate the tree structure for the layouts
+            profile_tree.domainProfiles = domain_profiles;
+            profile_tree.userProfiles = user_profiles;
+            selected_profile_tree.domainProfiles = domain_profiles;
+            selected_profile_tree.userProfiles = user_profiles;
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+            display_error_bar(jqXHR.status + ' ' + errorThrown.name);
+        }
+    });
+
+    // Gene carts are only user-specific, so these only matter if user is logged in
+    if (session_id) {
+        $.ajax({
+            url: './cgi/get_user_gene_carts.cgi',
+            type: 'post',
+            data: { 'session_id': session_id },
+            async: false,
+            dataType: 'json',
+            success: function(data, textStatus, jqXHR){ //source https://stackoverflow.com/a/20915207/2900840
+                let user_gene_carts = [];
+
+                if (data['gene_carts'].length > 0) {
+                    //User has some profiles
+                    $.each(data['gene_carts'], function(i, item){
+                        user_gene_carts.push({value: item['id'], text: item['label'] });
+
+                    });
+
+                    // No domain gene carts yet
+                    gene_cart_tree.userGeneCarts = user_gene_carts;
+                    $("#selected_gene_cart_c").show(); //Show if logged in
+                }
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                display_error_bar(jqXHR.status + ' ' + errorThrown.name);
+            }
+        });
+    } else {
+        $("#selected_gene_cart_c").hide(); //Hide if logged out
+    }
+
+    // Update genecart tree with data for current user
+    gene_cart_tree.generateTreeData();
+    gene_cart_tree.updateTreeData();
+
+    // Update profile trees with data for current user
+    profile_tree.generateTreeData();
+    profile_tree.updateTreeData();
+    selected_profile_tree.generateTreeData();
+    selected_profile_tree.updateTreeData();
 }
 
 // Hide option menu when scope is changed.
@@ -498,9 +646,6 @@ function select_search_result(elm) {
     $('.list-group-item-active').removeClass('list-group-item-active');
     $(elm).addClass('list-group-item-active');
 
-    var current_record_number = 0
-    var match_record_number = null
-
     annotation_panel.annotation = search_results[gene_sym];
     annotation_panel.display_first_organism();
 
@@ -517,7 +662,7 @@ function select_search_result(elm) {
 }
 
 function isNumeric(n) {
-  return !isNaN(parseFloat(n)) && isFinite(n);
+    return !isNaN(parseFloat(n)) && isFinite(n);
 }
 
 function show_search_result_info_box() {
@@ -530,24 +675,6 @@ function show_search_result_info_box() {
         $('.search_result_c_DISABLED').addClass('search_result_c').removeClass('search_result_c_DISABLED');
         // $('div.search_result_c').toggleClass('search_result_c_DISABLED');
     }
-}
-
-function find_share_id_by_pk(pk) {
-    // Given the layout primary key, retrieve the share_id from the array of previously generated layouts
-
-    // layouts -> public/user profiles -> children -> indiv. layouts -> value/text/share_id
-
-    for (i = 0; i < layouts.length; i++) {
-        let found_idx = layouts[i].children.findIndex(function(v) {
-            return v.value === pk;
-        })
-        if (found_idx > 0)
-            return layouts[i].children[found_idx].share_id;
-    }
-
-    // Failsafe if primary key was not found (though this should not happen)
-    console.log("Cannot find share_id for layout with id " + pk + " in list of layouts");
-    return "undefined";
 }
 
 $('#search_results').on("click", "a", function(e) {
@@ -589,12 +716,12 @@ $("#gene_search_form").submit(function( event ) {
 
     // determine if searching for exact matches (convert from bool to 1 or 0)
     $("#exact_match").val( Number($('#exact_match_input').prop("checked")) );
+    $("#multigene_plots").val( Number($('#multigene_plots_input').prop("checked")) );
 
     $('#recent_updates_c').hide();
     $('#searching_indicator_c').show();
 
     var formData = $("#gene_search_form").serializeArray();
-    //console.log(formData);
 
     // split on combination of space and comma (individually or both together.)
     var gene_symbol_array = $("#search_gene_symbol").val().split(/[\s,]+/);
@@ -602,24 +729,37 @@ $("#gene_search_form").submit(function( event ) {
     var uniq_gene_symbols = gene_symbol_array.filter((value, index, self) => self.indexOf(value) === index);
     var curated_searched_gene_symbols = uniq_gene_symbols.join(',');
 
+    // Update multigene toggle so correct grid widths are loaded.
+    multigene = ($("#multigene_plots").val() && $("#multigene_plots").val() === "1")
+
+    // SAdkins - Should we have a separate history state for dataset share IDs?
     history.pushState(
         // State Info
         {
-            'layout_id': share_id,
+            'layout_id': layout_id,
             'gene_symbol': curated_searched_gene_symbols,
-            'gene_symbol_exact_match': $("#exact_match").val()
+            'gene_symbol_exact_match': $("#exact_match").val(),
+            'multigene_plots': $("#multigene_plots").val()
         },
         // State title
         "Gene search",
         // URL
-        "/index.html?layout_id=" + share_id
+        "/index.html?layout_id=" + layout_id
             + "&gene_symbol=" + encodeURIComponent(curated_searched_gene_symbols)
             + "&gene_symbol_exact_match=" + $("#exact_match").val()
+            + "&multigene_plots=" + $("#multigene_plots").val()
     )
 
     $('#search_results').empty();
     // show search results
     $('#search_results_c').removeClass('search_result_c_DISABLED');
+
+    // Redraw layouts if toggling b/t single and multigene layouts, so that new HTML elements are generated
+    // TODO: "load_frames" may have been called previously if a "set_layouts" function was called.  Clean up so it's only called once
+    if (multigene_toggled) {
+        dataset_collection_panel.load_frames({share_id, multigene});
+        multigene_toggled = false;
+    }
 
     $.ajax({
         url : './cgi/search_genes.py',
@@ -633,9 +773,13 @@ $("#gene_search_form").submit(function( event ) {
             populate_search_result_list(data);
             $('#searching_indicator_c').hide();
             $('#intro_content').hide('fade', {}, 400, function() {
-                // auto-select the first match.  first <a class="list-group-item"
-                first_thing = $('#search_results a.list-group-item').first();
-                select_search_result(first_thing);
+                if ($('#multigene_plots').val() == 1){
+                    dataset_collection_panel.update_by_all_results(uniq_gene_symbols);
+                } else {
+                    // auto-select the first match.  first <a class="list-group-item"
+                    let first_thing = $('#search_results a.list-group-item').first();
+                    select_search_result(first_thing);
+                }
             });
 
             // http://manos.malihu.gr/jquery-custom-content-scroller/
@@ -655,7 +799,6 @@ $("#gene_search_form").submit(function( event ) {
             } else {
                 $("#search_results_scrollbox").mCustomScrollbar("update");
             }
-
             return false;
         },
         error: function (jqXHR, textStatus, errorThrown) {
@@ -751,116 +894,51 @@ $(document).on('click', '#gene_details_header, #gene_collapse_btn', function() {
     }
 });
 
-if (window.location.href.indexOf("manual.html") === -1) { //Without this the manual links break.
-    // Allows user to change layout profile without having to go to dataset Manager
-    // User not logged in can only change domain profiles
-    $('#selected_profile').editable({
-        mode: 'inline',
-        type: 'select',
-        pk: function() {
-            //return the layout_id
-            return $('.editable-input select option:selected').attr('value');
-        },
-        params: function(params) {
-            //data to be sent to 'url'
-            var data = {};
-            data['layout_id'] = parseInt(params.pk);
-            data['session_id'] =  Cookies.get('gear_session_id');
-            return data;
-        },
-        url: function(params) {
-            /*
-              When a user changes the profile the following needs to happen
+// When a gene cart is selected, populate the gene search bar with its members
+$('#selected_gene_cart').change(function() {
+    let geneCartId = $(this).val();
+    const params = { session_id: session_id, gene_cart_id: geneCartId };
+    const d = new $.Deferred(); // Causes editable to wait until results are returned
 
-              - Store the new layout ID
-              - set share_id so new state can be pushed to history (in update_datasetframes_generesults)
-              - Fetch and draw the new DatasetCollectionPanel
-              - If a user is logged in, set a cookie with the new layout ID
-             */
-            dataset_collection_panel.set_layout(params.layout_id, $('.editable-input select option:selected').text(), true);
-            share_id = find_share_id_by_pk(params.layout_id)
-            update_datasetframes_generesults();
-        },
-        title: 'Click to change',
-        tpl: '<select style="width:160px"></select>',
-        showbuttons: false,
-        source: function() {
-            return layouts; //populated by load_layouts()
-        },
-        sourceCache: true
-    });
-
-    // Load user's gene carts
-    $('#selected_gene_cart').editable({
-        mode: 'inline',
-        type: 'select',
-        pk: function() {
-            //return the gene_cart_id
-            return $('.editable-input select option:selected').attr('value');
-        },
-        params: function(params) {
-            //data to be sent to 'url'
-            var data = {};
-            data['gene_cart_id'] = parseInt(params.pk);
-            data['session_id'] =  Cookies.get('gear_session_id');
-            return data;
-        },
-        url: function(params) {
-            var d = new $.Deferred(); //Causes editable to wait until results are returned
-
-            //User is not logged in
-            if (!params.session_id) {
-                d.resolve();
-            } else {
-                //User is logged in
-                $("#search_gene_symbol").prop("disabled", true);
-                $("#selected_gene_cart_loading_c").show();
-
-                //Get the gene cart members and populate the gene symbol search bar
-                $.ajax({
-                    url: './cgi/get_gene_cart_members.cgi',
-                    type: 'post',
-                    data: params,
-                    success: function(data, newValue, oldValue) {
-                        if (data['success'] == 1) {
-                            // Append gene symbols to search bar
-                            gene_symbols = ''
-
-                            //format gene symbols into search string
-                            $.each(data['gene_symbols'], function(i, item){
-                                gene_symbols += item['label'] + ' ';
-                            });
-
-                            $('#search_gene_symbol').val(gene_symbols);
-
-                            // determine if searching for exact matches
-                            if ( $('#exact_match_input').prop("checked") == false ) {
-                                $('#exact_match_input').bootstrapToggle('on');
-                            }
-
-                        } else {
-                            $('#selected_gene_cart').text(oldValue);
-                            $('.alert-container').html('<div class="alert alert-danger alert-dismissible" role="alert">' +
-                              '<button type="button" class="close close-alert" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
-                              '<p class="alert-message"><strong>Oops! </strong> ' + data["error"] + '</p></div>').show();
-                        }
-                        $("#search_gene_symbol").prop("disabled", false);
-                        $("#selected_gene_cart_loading_c").hide();
-                        d.resolve();
-                    }
+    if (typeof session_id !== 'undefined') {
+        // Get the gene cart members and populate the gene symbol search bar
+        $.ajax({
+        url: './cgi/get_gene_cart_members.cgi',
+        type: 'post',
+        data: params,
+        success: function (data, newValue, oldValue) {
+            if (data.success === 1) {
+                const gene_symbols_array = []
+                // format gene symbols into search string
+                $.each(data.gene_symbols, function (i, item) {
+                    gene_symbols_array.push(item.label);
                 });
+                //deduplicate gene cart
+                const dedup_gene_symbols_array = [...new Set(gene_symbols_array)]
+
+                gene_symbols = dedup_gene_symbols_array.join(' ')
+                $('#search_gene_symbol').val(gene_symbols);
+                // determine if searching for exact matches
+                if ( $('#exact_match_input').prop("checked") == false ) {
+                    $('#exact_match_input').bootstrapToggle('on');
+                }
+            } else {
+                $('#selected_gene_cart').text(oldValue);
+                $('.alert-container').html('<div class="alert alert-danger alert-dismissible" role="alert">' +
+                    '<button type="button" class="close close-alert" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
+                    '<p class="alert-message"><strong>Oops! </strong> ' + data["error"] + '</p></div>').show();
             }
-            return d.promise();
-        },
-        title: 'Click to change',
-        tpl: '<select style="width:160px"></select>',
-        showbuttons: false,
-        source: function() {
-            return gene_carts; //populated by load_gene_carts()
-        },
-        sourceCache: true
-    });
-}
+            $("#search_gene_symbol").prop("disabled", false);
+            $("#selected_gene_cart_loading_c").hide();
+
+            d.resolve();
+        }
+        });
+    } else {
+        d.resolve();
+    }
+    return d.promise();
+});
 
 // automatically reloads dataset grid and resubmits gene search
 function update_datasetframes_generesults() {
@@ -869,9 +947,17 @@ function update_datasetframes_generesults() {
     }
 
     $.when( resubmit_gene_search() ).done(function(){
-        // auto-select the first match.  first <a class="list-group-item"
-        first_thing = $('#search_results a.list-group-item').first();
-        select_search_result(first_thing);
+        if ($('#multigene_plots').val() == 1){
+            // split on combination of space and comma (individually or both together.)
+            var gene_symbol_array = $("#search_gene_symbol").val().split(/[\s,]+/);
+            // Remove duplicates in gene search if they exist
+            var uniq_gene_symbols = gene_symbol_array.filter((value, index, self) => self.indexOf(value) === index);
+            dataset_collection_panel.update_by_all_results(uniq_gene_symbols);
+        } else {
+            // auto-select the first match.  first <a class="list-group-item"
+            let first_thing = $('#search_results a.list-group-item').first();
+            select_search_result(first_thing);
+        }
     });
 }
 
@@ -884,5 +970,23 @@ function set_exact_match(mode) {
         $('#exact_match_input').bootstrapToggle('off');
         $("#exact_match_icon img").attr("src", "img/arrow_target_unselected.png");
         $("#exact_match_icon img").attr('data-original-title', "Exact match (currently off)").tooltip('show');
+    }
+}
+
+function set_multigene_plots(mode) {
+    if (mode == 'on') {
+        $('#multigene_plots_input').bootstrapToggle('on');  // Toggles gene results display things upon change
+        $("#multigene_search_icon i").attr('data-original-title', "Multigene displays enabled. Click to search for single-gene displays ").tooltip('show');
+        //$("#multigene_search_icon i").addClass("fa-inverse");
+        //$("#multigene_search_icon").addClass("btn-purple");
+        $("#multigene_search_icon i").addClass("fa-gears");
+        $("#multigene_search_icon i").removeClass("fa-gear");
+    } else if (mode == 'off') {
+        $('#multigene_plots_input').bootstrapToggle('off');
+        $("#multigene_search_icon i").attr('data-original-title', "Single-gene displays enabled. Click to search for multigene displays").tooltip('show');
+        //$("#multigene_search_icon i").removeClass("fa-inverse");
+        //$("#multigene_search_icon").removeClass("btn-purple");
+        $("#multigene_search_icon i").addClass("fa-gear");
+        $("#multigene_search_icon i").removeClass("fa-gears");
     }
 }
