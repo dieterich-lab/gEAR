@@ -48,15 +48,23 @@ def _read_domain_label():
     json_conf = _read_site_domain_config()
     return json_conf['domain_label']
 
+def _read_domain_links_out():
+    json_conf = _read_site_domain_config()
+    return json_conf['links_out']
+
 def _read_domain_short_label():
     json_conf = _read_site_domain_config()
     return json_conf['domain_short_display_label']
 
+
+
 # For those functional differences we have depending on the site domain
 #  Current values are gear, nemo.  Value kept in www/site_domain_prefs.json
+# TODO: each of these, as currently implemented, causes file I/O and shouldn't.
 this.domain_url = _read_domain_url()
 this.domain_label = _read_domain_label()
 this.domain_short_label = _read_domain_short_label()
+this.links_out = _read_domain_links_out()
 
 def get_dataset_by_id(id=None, include_shape=None):
     """
@@ -139,6 +147,31 @@ def get_gene_by_id(gene_id):
     cursor.close()
     conn.close()
     return gene
+
+def get_gene_cart_by_id(gc_id):
+    """
+    Given a gene_cart_id passed this returns a GeneCart object with all attributes populated. Returns
+    None if no cart is found with that ID.
+    """
+    conn = Connection()
+    cursor = conn.get_cursor()
+
+    qry = """
+          SELECT id, user_id, organism_id, gctype, label, ldesc, share_id, is_public, date_added
+            FROM gene_cart
+           WHERE id = %s
+    """
+    cursor.execute(qry, (gc_id,))
+    gene = None
+
+    for (id, user_id, organism_id, gctype, label, ldesc, share_id, is_public, date_added) in cursor:
+        gc = GeneCart(id=id, user_id=user_id, organism_id=organism_id, gctype=gctype, label=label, ldesc=ldesc,
+                      share_id=share_id, is_public=is_public, date_added=date_added)
+        break
+
+    cursor.close()
+    conn.close()
+    return gc
 
 def get_layout_by_id(layout_id):
     """
@@ -995,20 +1028,13 @@ class Dataset:
         This returns where the path SHOULD be, it doesn't check that it's actually there. This
         allows for it to be used also for any process which wants to know where to write it.
         """
-        if self.has_h5ad:
-            if session_id is None:
-                h5ad_file_path = "{0}/../www/datasets/{1}.h5ad".format(
-                    os.path.dirname(os.path.abspath(__file__)), self.id)
-            else:
-                h5ad_file_path = "{0}/{1}/{2}.h5ad".format(this.analysis_base_dir, session_id, self.id)
-
-            return h5ad_file_path
-        else:
-            ## all other types are in the same place
-            tab_file_path = "{0}/../www/datasets_uploaded/{1}.tab".format(
+        if session_id is None:
+            h5ad_file_path = "{0}/../www/datasets/{1}.h5ad".format(
                 os.path.dirname(os.path.abspath(__file__)), self.id)
+        else:
+            h5ad_file_path = "{0}/{1}/{2}.h5ad".format(this.analysis_base_dir, session_id, self.id)
 
-            return tab_file_path
+        return h5ad_file_path
 
     def get_tarball_path(self):
         """
@@ -1079,7 +1105,6 @@ class Dataset:
             cursor.execute(qry, (self.id,))
 
             for (id, resource, label, url) in cursor:
-                print("DEBUG: a link got added", file=sys.stderr)
                 dsl = DatasetLink(dataset_id=self.id, resource=resource, label=label, url=url)
                 self.links.append(dsl)
             
@@ -1112,6 +1137,12 @@ class Dataset:
 
     def to_json(self):
         return str(self)
+
+    def remove(self):
+        """
+        Removes a dataset and its dependencies from the database
+        """
+        raise Exception("Support not yet added to remove dataset via the API")
 
     def save_change(self, attribute=None, value=None):
         """
@@ -1151,6 +1182,30 @@ class DatasetCollection:
     def _serialize_json(self):
         # Called when json modules attempts to serialize
         return self.__dict__
+
+    def apply_layout(self, layout=None):
+        """
+        Applying a layout to a dataset collection adds the following attributes to 
+        each of the datasets according to that layout:
+
+          - grid_position
+          - grid_width
+          - mg_grid_width
+
+        """
+        if layout is None:
+            raise Exception("A layout must be passed to DatasetCollection.apply_layout()")
+
+        lm_idx = dict()
+        
+        for lm in layout.members:
+            lm_idx[lm.dataset_id] = lm
+
+        for d in self.datasets:
+            if d.id in lm_idx:
+                d.grid_position = lm_idx[d.id].grid_position
+                d.grid_width = lm_idx[d.id].grid_width
+                d.mg_grid_width = lm_idx[d.id].mg_grid_width
 
     def filter_by_types(self, types=None):
         """
@@ -1231,6 +1286,11 @@ class DatasetCollection:
                     dataset.has_tarball = 1
                 else:
                     dataset.has_tarball = 0
+
+                if os.path.exists(dataset.get_file_path()):
+                    dataset.has_h5ad = 1
+                else:
+                    dataset.has_h5ad = 0
 
                 #  TODO: These all need to be tracked through the code and removed
                 dataset.dataset_id = dataset.id
@@ -1465,15 +1525,21 @@ class Gene:
         self.dbxrefs.append({'source': 'PubMed', 'identifier': self.gene_symbol,
                              'url': "http://www.ncbi.nlm.nih.gov/pubmed/?term={0}".format(self.gene_symbol)})
 
+        # Does the user want Homologene links?
+        if 'HomoloGene' in this.links_out and this.links_out['HomoloGene'] is True:
+            hg_url = 'https://www.ncbi.nlm.nih.gov/homologene/?term=' + self.gene_symbol.upper()
+            self.dbxrefs.append({'source': 'HomoloGene', 'identifier': self.gene_symbol, 'url': hg_url})
+        
         if this.domain_label == 'gear':
             # Add one for the SHIELD
             self.dbxrefs.append({'source': 'SHIELD', 'identifier': self.gene_symbol, 'url': None})
 
             # Hack to add DVD links until they have SSL enabled and we can use their API instead
-            dvd_genes = ["ACTG1","ADCY1","ADGRV1","GPR98","AIFM1","ALMS1","ATP2B2","ATP6V1B1","BDP1","BSND","C10orf2","CABP2","CACNA1D","CCDC50","CD164","CDC14A","CDH23","CEACAM16","CIB2","CISD2","CLDN14","CLIC5","CLPP","CLRN1","COCH","COL11A1","COL11A2","COL2A1","COL4A3","COL4A4","COL4A5","COL4A6","COL9A1","COL9A2","CRYM","DCDC2","DFNA5","DFNB31 (WHRN)","DFNB59 (PJVK)","DIABLO","DIAPH1","DIAPH3","DSPP","EDN3","EDNRB","ELMOD3","EPS8","EPS8L2","ESPN","ESRRB","EYA1","EYA4","FAM65B","FGF3","FGFR1","FGFR2","FOXI1","GATA3","GIPC3","GJB2","GJB3","GJB6","GPSM2","GRHL2","GRXCR1","GRXCR2","HARS2","HGF","HOMER2","HSD17B4","ILDR1","KARS","KCNE1","KCNJ10","KCNQ1","KCNQ4","KITLG","LARS2","LHFPL5","LOXHD1","LOXL3","LRTOMT","MARVELD2","MCM2","MET","MIR96","MITF","MSRB3","MT-RNR1","MT-TL1","MT-TS1","MYH14","MYH9","MYO15A","MYO3A","MYO6","MYO7A","NARS2","NLRP3","OPA1","OSBPL2","OTOA","OTOF","OTOG","OTOGL","P2RX2","PAX3","PCDH15","PDZD7","PEX1","PEX6","PNPT1","POLR1C","POLR1D","POU3F4","POU4F3","PRPS1","PTPRQ","RDX","ROR1","S1PR2","SERPINB6","SIX1","SIX5","SLC17A8","SLC22A4","SLC26A4","SLC26A5","SLITRK6","SMPX","SNAI2","SOX10","STRC","SYNE4","TBC1D24","TBX1","TCOF1","TECTA","TECTB","TIMM8A","TJP2","TMC1","TMEM132E","TMIE","TMPRSS3","TNC","TPRN","TRIOBP","TSPEAR","USH1C","USH1G","USH2A","WFS1"]
-            if self.gene_symbol.upper() in dvd_genes:
-                dvd_url = 'http://deafnessvariationdatabase.org/gene/' + self.gene_symbol.upper()
-                self.dbxrefs.append({'source': 'DVD', 'identifier': self.gene_symbol, 'url': dvd_url, 'title': 'Deafness Variation Database'})
+            if 'DVD' in this.links_out and this.links_out['DVD'] is True:
+                dvd_genes = ["ACTG1","ADCY1","ADGRV1","GPR98","AIFM1","ALMS1","ATP2B2","ATP6V1B1","BDP1","BSND","C10orf2","CABP2","CACNA1D","CCDC50","CD164","CDC14A","CDH23","CEACAM16","CIB2","CISD2","CLDN14","CLIC5","CLPP","CLRN1","COCH","COL11A1","COL11A2","COL2A1","COL4A3","COL4A4","COL4A5","COL4A6","COL9A1","COL9A2","CRYM","DCDC2","DFNA5","DFNB31 (WHRN)","DFNB59 (PJVK)","DIABLO","DIAPH1","DIAPH3","DSPP","EDN3","EDNRB","ELMOD3","EPS8","EPS8L2","ESPN","ESRRB","EYA1","EYA4","FAM65B","FGF3","FGFR1","FGFR2","FOXI1","GATA3","GIPC3","GJB2","GJB3","GJB6","GPSM2","GRHL2","GRXCR1","GRXCR2","HARS2","HGF","HOMER2","HSD17B4","ILDR1","KARS","KCNE1","KCNJ10","KCNQ1","KCNQ4","KITLG","LARS2","LHFPL5","LOXHD1","LOXL3","LRTOMT","MARVELD2","MCM2","MET","MIR96","MITF","MSRB3","MT-RNR1","MT-TL1","MT-TS1","MYH14","MYH9","MYO15A","MYO3A","MYO6","MYO7A","NARS2","NLRP3","OPA1","OSBPL2","OTOA","OTOF","OTOG","OTOGL","P2RX2","PAX3","PCDH15","PDZD7","PEX1","PEX6","PNPT1","POLR1C","POLR1D","POU3F4","POU4F3","PRPS1","PTPRQ","RDX","ROR1","S1PR2","SERPINB6","SIX1","SIX5","SLC17A8","SLC22A4","SLC26A4","SLC26A5","SLITRK6","SMPX","SNAI2","SOX10","STRC","SYNE4","TBC1D24","TBX1","TCOF1","TECTA","TECTB","TIMM8A","TJP2","TMC1","TMEM132E","TMIE","TMPRSS3","TNC","TPRN","TRIOBP","TSPEAR","USH1C","USH1G","USH2A","WFS1"]
+                if self.gene_symbol.upper() in dvd_genes:
+                    dvd_url = 'http://deafnessvariationdatabase.org/gene/' + self.gene_symbol.upper()
+                    self.dbxrefs.append({'source': 'DVD', 'identifier': self.gene_symbol, 'url': dvd_url, 'title': 'Deafness Variation Database'})
 
         elif this.domain_label == 'nemo':
             # Add one for UCSC Cell Browser, BrainSpan
@@ -1602,14 +1668,25 @@ class GeneCollection:
 
 
 class GeneCart:
-    def __init__(self, id=None, user_id=None, label=None, genes=None):
+    def __init__(self, id=None, user_id=None, gctype=None, label=None, ldesc=None, organism_id=None,
+                 genes=None, share_id=None, is_public=None, is_domain=None, date_added=None):
         self.id = id
         self.user_id = user_id
+        self.gctype = gctype
         self.label = label
+        self.organism_id = organism_id
+        self.ldesc = ldesc
+        self.share_id = share_id
+        self.is_public = is_public
+        self.is_domain = is_domain
+        self.date_added = date_added
+
+        if not share_id:
+            self.share_id = str(uuid.uuid4()).split('-')[0]
 
         # TODO: This should be a reference to a GeneCollection
         if not genes:
-            self.genes = list()
+            self.get_genes()
 
     def __repr__(self):
         return json.dumps(self.__dict__)
@@ -1617,6 +1694,40 @@ class GeneCart:
     def add_gene(self, gene):
         self.genes.append(gene)
 
+    def get_genes(self):
+        conn = Connection()
+        cursor = conn.get_cursor()
+
+        qry = "SELECT gene_symbol FROM gene_cart_member WHERE gene_cart_id = %s"
+        cursor.execute(qry, (self.id,))
+
+        self.genes = list()
+
+        for row in cursor:
+            self.genes.append(row[0])
+
+        cursor.close()
+        conn.close()
+
+    def remove(self):
+        """
+        Removes a gene cart and its dependencies from the database.  Requires object's
+        'id' attribute to be defined.
+        """
+        if not self.id:
+            raise Exception("Failed to delete a gene cart without an ID")
+        
+        # gene_cart_member entries are deleted by foreign key cascade
+        conn = Connection()
+        cursor = conn.get_cursor()
+
+        sql = "DELETE FROM gene_cart WHERE id = %s"
+        cursor.execute(sql, (self.id,))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
     def save(self):
         """
         Will perform a save or an update depending on whether the ID attribute is
@@ -1630,9 +1741,12 @@ class GeneCart:
         if self.id is None:
             # ID is empty, this is a new one
             #  Insert the cart and then add the members
-            gc_insert_qry = "INSERT INTO gene_cart (user_id, label) VALUES (%s, %s)"
+            gc_insert_qry = """
+                            INSERT INTO gene_cart (user_id, label, organism_id, share_id, is_public, is_domain, gctype) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """
 
-            cursor.execute(gc_insert_qry, (self.user_id, self.label))
+            cursor.execute(gc_insert_qry, (self.user_id, self.label, self.organism_id, self.share_id, self.is_public, self.is_domain, self.gctype))
             self.id = cursor.lastrowid
 
             for gene in self.genes:
@@ -1645,6 +1759,33 @@ class GeneCart:
 
         cursor.close()
         conn.commit()
+        conn.close()
+
+    def save_change(self, attribute=None, value=None):
+        """
+        Update a cart attribute, both in the object and the relational database
+        """
+        if self.id is None:
+            raise Exception("Error: no gene cart id. Cannot save change.")
+        if attribute is None:
+            raise Exception("Error: no attribute given. Cannot save change.")
+
+        ## quick sanitization of attribute
+        attribute = re.sub('[^a-zA-Z0-9_]', '_', attribute)
+        setattr(self, attribute, value)
+
+        conn = Connection()
+        cursor = conn.get_cursor()
+
+        save_sql = """
+            UPDATE gene_cart
+            SET {0} = %s
+            WHERE id = %s
+        """.format(attribute)
+        cursor.execute(save_sql, (str(value), self.id))
+
+        conn.commit()
+        cursor.close()
         conn.close()
 
     def update_from_json(self, json_obj):
@@ -1665,17 +1806,172 @@ class GeneCart:
         if 'label' in json_obj:
             self.label = json_obj['label']
 
+        if 'organism_id' in json_obj:
+            self.organism_id = json_obj['organism_id']
+
         if 'session_id' in json_obj and not self.user_id:
             user_logged_in = get_user_from_session_id(json_obj['session_id'])
             self.user_id = user_logged_in.id
+
+        if 'gctype' in json_obj:
+            self.gctype = json_obj['gctype']
+
+        if 'is_public' in json_obj:
+            self.is_public = json_obj['is_public']
+
+        if 'is_domain' in json_obj:
+            self.is_domain = json_obj['is_domain']
 
         if 'genes' in json_obj:
             self.genes = list()
 
             for gene_dict in json_obj['genes']:
-                gene = Gene(id=gene_dict['id'], gene_symbol=gene_dict['gene_symbol'])
+                gene = Gene(gene_symbol=gene_dict['gene_symbol'])
                 self.add_gene(gene)
 
+
+@dataclass
+class GeneCartCollection:
+    carts: List[GeneCart] = field(default_factory=list)
+
+    def __repr__(self):
+        return json.dumps(self.__dict__)
+
+    def _serialize_json(self):
+        # Called when json modules attempts to serialize
+        return self.__dict__
+
+    def _row_to_cart_object(self, row):
+        """
+        Utility function so we don't have to repeat the SQL->Python object conversion
+        """
+        cart = GeneCart(
+                    id=row['id'],
+                    user_id=row['user_id'],
+                    organism_id=row['organism_id'],
+                    gctype=row['gctype'],
+                    label=row['label'],
+                    ldesc=row['ldesc'],
+                    share_id=row['share_id'],
+                    is_public=row['is_public'],
+                    is_domain=row['is_domain'],
+                    date_added=row['date_added'].isoformat()
+                )
+        return cart
+
+    def get_by_cart_ids(self, ids=None):
+        conn = Connection()
+        cursor = conn.get_cursor(use_dict=True)
+
+        qry = """
+              SELECT id, user_id, organism_id, gctype, label, ldesc, share_id, is_public, is_domain, date_added
+                FROM gene_cart
+               WHERE id = %s
+        """
+
+        for id in ids:
+            cursor.execute(qry, (id,))
+
+            for row in cursor:
+                cart = self._row_to_cart_object(row)
+                self.carts.append(cart)
+        
+        cursor.close()
+        conn.close()
+        return self.carts
+
+    def get_by_group_ids(self):
+        """
+        Put here as it will be needed in the future. User groups not yet supported.
+        """
+        return []
+    
+    def get_by_share_ids(self, share_ids=None):
+        conn = Connection()
+        cursor = conn.get_cursor(use_dict=True)
+
+        qry = """
+              SELECT id, user_id, organism_id, gctype, label, ldesc, share_id, is_public, is_domain, date_added
+                FROM gene_cart
+               WHERE share_id = %s
+        """
+        
+        for share_id in share_ids:
+            cursor.execute(qry, (share_id,))
+
+            for row in cursor:
+                cart = self._row_to_cart_object(row)
+                self.carts.append(cart)
+        
+        cursor.close()
+        conn.close()
+        return self.carts
+
+    def get_by_user(self, user=None):
+        conn = Connection()
+        cursor = conn.get_cursor(use_dict=True)
+
+        qry = """
+              SELECT id, user_id, organism_id, gctype, label, ldesc, share_id, is_public, is_domain, date_added
+                FROM gene_cart
+               WHERE user_id = %s
+        """
+
+        cursor.execute(qry, (user.id,))
+
+        for row in cursor:
+            cart = self._row_to_cart_object(row)
+            #print("Adding cart with label: {0}".format(cart.label))
+            self.carts.append(cart)
+        
+        cursor.close()
+        conn.close()
+        return self.carts
+
+    def get_by_user_groups(self, user=None):
+        """
+        Put here as it will be needed in the future. User groups not yet supported.
+        """
+        return []
+
+    def get_domain(self):
+        conn = Connection()
+        cursor = conn.get_cursor(use_dict=True)
+
+        qry = """
+              SELECT id, user_id, organism_id, gctype, label, ldesc, share_id, is_public, is_domain, date_added
+                FROM gene_cart
+               WHERE is_domain = 1
+        """
+        cursor.execute(qry)
+
+        for row in cursor:
+            cart = self._row_to_cart_object(row)
+            self.carts.append(cart)
+        
+        cursor.close()
+        conn.close()
+        return self.carts
+
+    def get_public(self):
+        conn = Connection()
+        cursor = conn.get_cursor(use_dict=True)
+
+        qry = """
+              SELECT id, user_id, organism_id, gctype, label, ldesc, share_id, is_public, is_domain, date_added
+                FROM gene_cart
+               WHERE is_public = 1
+        """
+        cursor.execute(qry)
+
+        for row in cursor:
+            cart = self._row_to_cart_object(row)
+            self.carts.append(cart)
+        
+        cursor.close()
+        conn.close()
+        return self.carts
+    
 
 class LayoutMember:
     def __init__(self, id=None, dataset_id=None, grid_position=None, grid_width=None, mg_grid_width=None):
@@ -1740,8 +2036,8 @@ class User:
     Important note.  Because 'pass' is a reserved word in Python this field differs from the database
     table column name.
     """
-    def __init__(self, id=None, user_name=None, email=None, institution=None, password=None, updates_wanted=None,
-                 is_admin=None, is_gear_curator=None, help_id=None):
+    def __init__(self, id=None, user_name=None, email=None, institution=None, password=None,
+                 updates_wanted=None, is_admin=None, is_gear_curator=None, help_id=None):
         self.id = id
         self.user_name = user_name
         self.email = email

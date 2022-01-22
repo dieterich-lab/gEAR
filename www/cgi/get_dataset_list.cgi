@@ -86,15 +86,17 @@ def main():
         cursor.close()
         cnx.close()
         print(json.dumps(result))
+        return
 
      # Was a specific layout ID passed?
     if form.getvalue('layout_id') is not None:
         layout_id = form.getvalue('layout_id')
         layout = geardb.Layout(id=layout_id)
         layout.load()
-        
+
         dsc = geardb.DatasetCollection()
         dsc.get_by_dataset_ids(ids=layout.dataset_ids(), get_links=True)
+        dsc.apply_layout(layout=layout)
         result['datasets'].extend(dsc.datasets)
 
     # If scope is defined, the user is performing a search
@@ -228,13 +230,14 @@ def main():
         if layout_id is None:
             for dataset in get_default_layout(cursor, default_domain_label):
                 result['datasets'].append(dataset)
-                dataset_ids.append(dataset['dataset_id'])
+                dataset_ids.append(dataset.id)
         else:
             layout = geardb.Layout(id=layout_id)
             layout.load()
-            
+
             dsc = geardb.DatasetCollection()
             dsc.get_by_dataset_ids(ids=layout.dataset_ids(), get_links=True)
+            dsc.apply_layout(layout=layout)
             result['datasets'].extend(dsc.datasets)
 
     cursor.close()
@@ -267,7 +270,14 @@ def get_default_layout(cursor, domain_label):
     elif domain_label == "Huntington's disease (default)":
         layout_id = 10001
 
-    return get_layout_by_id(cursor, 0, layout_id, 1)
+    layout =  geardb.Layout(id=layout_id)
+    layout.load()
+
+    dsc = geardb.DatasetCollection()
+    dsc.get_by_dataset_ids(ids=layout.dataset_ids(), get_links=True)
+    dsc.apply_layout(layout=layout)
+
+    return dsc.datasets
 
 def get_users_datasets(cursor, user_id):
     qry = """
@@ -308,7 +318,7 @@ def get_users_datasets(cursor, user_id):
                 'dataset_id': row[0],
                 'grid_position': None,
                 'grid_width': 4,
-                'mg_grid_width': 4,
+                'mg_grid_width': 6,
                 'title': row[1],
                 'organism': row[2],
                 'organism_id': row[16],
@@ -372,7 +382,7 @@ def get_permalink_dataset(cursor, permalink_id):
                 'dataset_id': row[0],
                 'grid_position': 100,
                 'grid_width': 4,
-                'mg_grid_width': 4,
+                'mg_grid_width': 6,
                 'title': row[1],
                 'organism': row[2],
                 'pubmed_id': row[3],

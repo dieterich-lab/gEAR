@@ -136,11 +136,13 @@
                           <img src="img/arrow_target_unselected.png" alt="Exact match" data-toggle="tooltip" data-placement="top" title="Exact match (currently off)" />
                         </div>
                       </div>
+
                       <div class="input-group-append">
                         <div id="multigene_search_icon" class="input-group-text" >
                           <i class="fa fa-gear" aria-hidden="true" data-toggle="tooltip" data-placement="top" title="Single-gene displays enabled. Click to search for multigene displays"></i>
                         </div>
                       </div>
+
                       <div class="input-group-append">
                         <div id="intro_search_icon" class="input-group-text" >
                           <img src="img/search_icon.png" alt="Search" data-toggle="tooltip" data-placement="top" title="Search" />
@@ -169,7 +171,12 @@
                           </a>
                           <div class="dropdown-menu" aria-labelledby="search_param_profile">
                             <form class="px-4 py-3">
-                              <input type="text" id="profile_tree_q" placeholder="Type to search profiles">
+                              <div class="input-group input-group-sm mb-3">
+                                <div class="input-group-prepend">
+                                  <i class="fa fa-search input-group-text" aria-hidden="true"></i>
+                                </div>
+                                <input type="text" class="form-control" id="profile_tree_q" placeholder="Type to search profiles">
+                              </div>
                               <div id="profile_tree"></div>
                             </form>
                           </div>
@@ -228,6 +235,14 @@
                     </div>
                     <div class="col-8 tool_launcher_c my-auto">
                       <span>Single-cell workbench</span>
+                    </div>
+                  </div>
+                  <div class="row tool-launcher" data-tool-name="mg_curator">
+                    <div class="col-4 tool_launcher_c pr-0">
+                      <img class="img-fluid" src="./img/heatmap_thumbnail.png" />
+                    </div>
+                    <div class="col-8 tool_launcher_c my-auto">
+                      <span>Create Multigene Displays</span>
                     </div>
                   </div> <!-- end subrow -->
                   <div id="uploader_header_c" class="row">
@@ -351,7 +366,12 @@
                   <span id="selected_profile" value="" data-title="Click to change" class="dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Empty</span>
                   <div class="dropdown-menu" aria-labelledby="selected_profile">
                     <form class="px-4 py-3">
-                      <input type="text" id="selected_profile_tree_q" placeholder="Type to search profiles">
+                      <div class="input-group input-group-sm mb-3">
+                        <div class="input-group-prepend">
+                          <i class="fa fa-search input-group-text" aria-hidden="true"></i>
+                        </div>
+                        <input type="text" class="form-control" id="selected_profile_tree_q" placeholder="Type to search profiles">
+                      </div>
                       <div id="selected_profile_tree"></div>
                     </form>
                   </div>
@@ -361,7 +381,12 @@
                   <span id="selected_gene_cart" value="" data-title="Click to change" class="dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Empty</span>
                   <div class="dropdown-menu" aria-labelledby="selected_gene_cart">
                     <form class="px-4 py-3">
-                      <input type="text" id="selected_gene_cart_tree_q" placeholder="Type to search profiles">
+                      <div class="input-group input-group-sm mb-3">
+                        <div class="input-group-prepend">
+                          <i class="fa fa-search input-group-text" aria-hidden="true"></i>
+                        </div>
+                        <input type="text" class="form-control" id="selected_gene_cart_tree_q" placeholder="Type to search gene carts">
+                      </div>
                       <div id="selected_gene_cart_tree"></div>
                     </form>
                   </div>
@@ -392,6 +417,7 @@
                     <input id="exact_match_input" type="checkbox" data-toggle="toggle" data-size="xs" title="Limit results to exact matches" />
                   </div>
                 </div>
+
                 <div class="row search_option">
                   <div class="col-8 pl-0 pr-0">
                     Multigene plots
@@ -400,6 +426,7 @@
                     <input id="multigene_plots_input" type="checkbox" data-toggle="toggle" data-size="xs" title="Show plots that display all searched genes" />
                   </div>
                 </div>
+
 
                 <div class="form-group">
                   <!-- this gets re-enabled when the page is loaded via javascript -->
@@ -436,8 +463,9 @@
                 <span id="search_result_count" class="badge"></span>
               </h4>
               <div id="multigene_search_indicator" class="small alert alert-info" style="display:none;">
-                Selectable genes hidden because 'multigene plots' is enabled.
+                Selectable genes hidden because 'Multigene Plots' is enabled.
               </div>
+              <div class="alert alert-warning" role="alert" id="too_many_genes_warning" style="display:none;"></div>
               <div id="searching_indicator_c">
                 <img id="searching_indicator" src="img/loading_search.gif" alt="searching" />
               </div>
@@ -449,9 +477,9 @@
           </div>
           <!-- #lefbar_main -->
 
-          <div id="viewport_intro" class="main_column col-sm-7 col-md-7 col-lg-7">
+          <div id="viewport_intro" class="main_column col-7">
             <!-- #PERMALINK -->
-            <div id="permalink_intro_c" style="display:none">
+            <div id="permalink_intro_c" class="shown_later">
               <div id="permalink_info" class="container"></div>
               <div class="container">
                 <div class="alert alert-info" role="alert">
@@ -751,8 +779,8 @@
                     <button type="button" class="btn btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" data-placement="bottom" title="Show options">
                       <span class="caret"></span>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-right" style='z-index:10000'>
-                      <li id="dataset_{{:primary_key}}_displays"class='dropdown-submenu'>
+                    <ul class="dropdown-menu dropdown-menu-right datasetbox-menu" style='z-index:10000'>
+                      <li id="dataset_{{:primary_key}}_displays" class='dropdown-submenu'>
                         <a href="javascript:;" class="fa fa-clone"> Displays</a>
                       </li>
                       <li id="dataset_{{:primary_key}}_zoom_in_control"><a href="javascript:;" class="fa fa-search-plus"> View</a></li>
@@ -763,23 +791,21 @@
                       {{if geo_id}}
                       <li><a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={{:geo_id}}" target="_blank" class="fa fa-globe"> GEO entry</a></li>
                       {{/if}}
-                      <li><a href="./compare_datasets.html?dataset_id={{:id}}" target="_blank" class="fa fa-compress"> Compare</a></li>
-                      <li><a class="fa fa-plus-square" 
-                        {{if multigene}}
-                        href="./multigene_curator.html?dataset_id={{:id}}"
-                        {{else}}
-                        href="./dataset_curator.html#/dataset/{{:id}}/displays"
-                        {{/if}}
-                      > Curate</a></li>
+                      <li><a href="./compare_datasets.html?dataset_id={{:id}}" target="_blank" class="fa fa-compress"> Compare Gene Expression</a></li>
+                      <li><a class="fa fa-plus-square" target="_blank" href="./dataset_curator.html#/dataset/{{:id}}/displays"> Curate Display</a></li>
+                      <li><a class="fa fa-eye" target="_blank" href="./multigene_curator.html?dataset_id={{:id}}"> Multigene Viewer</a></li>
                       {{if has_h5ad}}
-                      <li><a href="./analyze_dataset.html?dataset_id={{:id}}" target="_blank" class="fa fa-bar-chart"> Analyze</a></li>
+                      <li><a href="./analyze_dataset.html?dataset_id={{:id}}" target="_blank" class="fa fa-bar-chart"> Analyze Single Cell</a></li>
                       {{/if}}
                       <!-- Any new resources need CSS added for this class -->
                       {{for links}}
                       <li class="dataset-link-{{:resource}}"><a href="{{:url}}" class="fa" target="_blank">{{:label}}</a></li>
                       {{/for}}
                       {{if has_tarball}}
-                      <li><a href="./cgi/download_tarball.cgi?dataset_id={{:id}}" class="fa fa-download"> Download</a></li>
+                      <li><a href="./cgi/download_source_file.cgi?type=tarball&dataset_id={{:id}}" class="fa fa-download"> Download bundle</a></li>
+                      {{/if}}
+                      {{if has_h5ad}}
+                      <li><a href="./cgi/download_source_file.cgi?type=h5ad&dataset_id={{:id}}" class="fa fa-download"> Download H5AD</a></li>
                       {{/if}}
                     </ul>
                   </div>
@@ -833,10 +859,10 @@
     <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.4.0/js/bootstrap4-toggle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
 
-    <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/6.1.5/bootstrap-slider.min.js"></script>-->
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.4.0/js/bootstrap4-toggle.min.js"></script>
 
     <script src="js/vendor/jquery.mCustomScrollbar.concat.min.js"></script>
     <script src="js/vendor/js.cookie.js"></script>
@@ -846,9 +872,6 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/tinycolor/0.11.1/tinycolor.min.js"></script>
     <script src="js/vendor/bootstrap.colorpickersliders.js"></script>
     <script src="js/vendor/rainbowvis.js"></script>
-
-    <!-- X-editable-->
-    <script src="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.5.0/bootstrap3-editable/js/bootstrap-editable.min.js"></script>
 
     <!-- Plotly JS-->
     <script src="https://cdn.plot.ly/plotly-1.54.1.min.js"></script>
@@ -862,6 +885,7 @@
     <script>document.write('<script src="js/classes/ui-panel-dataset.' + Math.floor(Math.random() * 10000000) + '.js"\><\/script>');</script>
     <script>document.write('<script src="js/classes/ui-panel-dataset-collection.' + Math.floor(Math.random() * 10000000) +'.js"\><\/script>');</script>
     <script>document.write('<script src="js/classes/user.' + Math.floor(Math.random() * 10000000) + '.js"\><\/script>'); </script>
+    <script>document.write('<script src="js/plot_display_config.' + Math.floor(Math.random() * 10000000) + '.js"\><\/script>');</script>
     <script>document.write('<script src="js/classes/display.' + Math.floor(Math.random() * 10000000) + '.js"\><\/script>');</script>
     <script>document.write('<script src="js/classes/tree.' + Math.floor(Math.random() * 10000000) + '.js"\><\/script>');</script>
     <script>document.write('<script src="js/common.' + Math.floor(Math.random() * 10000000) + '.js"\><\/script>');</script>

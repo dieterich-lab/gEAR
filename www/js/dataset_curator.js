@@ -80,20 +80,16 @@ const store = new Vuex.Store({
         state.owner_displays.find((display) => display.id == display_id);
     },
     user_displays(state) {
-      return state.user_displays.map((display) => {
-        return {
-          is_default: state.default_display_id == display.id ? true : false,
-          ...display,
-        };
-      });
+      return state.user_displays.map((display) => ({
+        is_default: state.default_display_id == display.id,
+        ...display,
+      }));
     },
     owner_displays(state) {
-      return state.owner_displays.map((display) => {
-        return {
-          is_default: state.default_display_id == display.id ? true : false,
-          ...display,
-        };
-      });
+      return state.owner_displays.map((display) => ({
+        is_default: state.default_display_id == display.id,
+        ...display,
+      }));
     },
   },
 
@@ -425,7 +421,7 @@ const store = new Vuex.Store({
       commit("set_title", title);
     },
     async fetch_user_displays({ commit }, { user_id, dataset_id }) {
-      let displays = await $.ajax({
+      const displays = await $.ajax({
         url: "/cgi/get_dataset_displays.cgi",
         type: "POST",
         data: { user_id, dataset_id },
@@ -467,13 +463,11 @@ const store = new Vuex.Store({
           analysis_id,
         },
         { cancelToken: cancel_source.token
-        }).then(function (response) {
+        }).then((response) => {
           commit('set_available_plot_types', response.data);
-        }).catch(function (thrown) {
+        }).catch((thrown) => {
           if (axios.isCancel(thrown)) {
             console.log('Request canceled:', thrown.message);
-          } else {
-            // handle error
           }
         });
       commit("set_available_plot_types", available_plot_types);
@@ -486,11 +480,10 @@ const store = new Vuex.Store({
         const response = await axios.get(
           `/api/h5ad/${dataset_id}?analysis_id=${analysis.id}`
         );
-        data = response.data;
       } else {
         const response = await axios.get(`/api/h5ad/${dataset_id}`);
-        data = response.data;
       }
+      data = response.data;
       const { obs_columns, obs_levels } = data;
       commit("set_columns", obs_columns);
       commit("set_levels", obs_levels);
@@ -572,7 +565,7 @@ const store = new Vuex.Store({
           skip_gene_plot: config.skip_gene_plot,
           x_axis: config.x_axis,
           y_axis: config.y_axis,
-          plot_type: plot_type,
+          plot_type,
           plot_by_group: config.plot_by_group,
           max_columns: config.max_columns,
           analysis_owner_id: this.user_id,
