@@ -21,21 +21,19 @@
 <script>
 // vertical-line.vue
 
-module.exports = {
-  props: {
-    vl: Object,
-  },
-  data() {
-    return {
-      vl_pos: null,
-      vl_style: "solid",
-      options: [
-        { value: "solid", text: "Solid" },
-        { value: "dash", text: "Dashed" },
-        { value: "dot", text: "Dotted" },
-        { value: "dashdot", text: "Dash/Dot" },
-      ],
-    };
-  },
+export const props={
+  vl: Object,
 };
+export function data() {
+  return {
+    vl_pos: null,
+    vl_style: "solid",
+    options: [
+      { value: "solid", text: "Solid" },
+      { value: "dash", text: "Dashed" },
+      { value: "dot", text: "Dotted" },
+      { value: "dashdot", text: "Dash/Dot" },
+    ],
+  };
+}
 </script>

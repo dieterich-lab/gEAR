@@ -17,122 +17,152 @@
 <script>
 // svg-chart.vue
 
-module.exports = {
-  props: {
-    chart_data: {
-      type: Object,
-      default: null,
-    },
-    low_color: {
-      type: String,
-      default: "",
-    },
-    high_color: {
-      type: String,
-      default: "",
-    },
-    display_data: {
-      type: Object,
-      default: null,
-    },
+export const props={
+  chart_data: {
+    type: Object,
+    default: null,
   },
-  data() {
-    return {
-      loading: false,
-      paths: [],
-      svg: {},
-      scoring_method: "gene", // need to make this a toggle
-      success: 0,
-      message: "",
-    };
+  low_color: {
+    type: String,
+    default: "",
   },
-  computed: {
-    ...Vuex.mapState(["dataset_id"]),
+  mid_color: {
+    type: String,
+    default: "",
   },
-  watch: {
-    async svg(svg) {
-      this.paths = svg.selectAll("path, circle");
-      svg.select("svg").attr({
-        width: "100%",
-        height: this.display_data ? "200px" : "",
-      });
-      const snap = Snap(this.$refs.chart);
-      snap.append(svg);
-
-      if (this.display_data) {
-        const { plotly_config } = this.display_data;
-        const payload = { ...plotly_config };
-        const { gene_symbol } = payload;
-        const { data } = await axios.get(
-          `/api/plot/${this.dataset_id}/svg?gene=${gene_symbol}`
-        );
-        this.color_svg(data);
-      } else {
-        this.color_svg();
-      }
-    },
-    low_color() {
-      this.color_svg();
-    },
-    high_color() {
-      this.color_svg();
-    },
-    chart_data() {
-      this.color_svg();
-      this.success = this.chart_data.success;
-      this.message = this.chart_data.message;
-    },
+  high_color: {
+    type: String,
+    default: "",
   },
-  async created() {
-    const svg_path = `datasets_uploaded/${this.dataset_id}.svg`;
-    Snap.load(svg_path, (svg) => {
-      this.svg = svg;
+  display_data: {
+    type: Object,
+    default: null,
+  },
+};
+export function data() {
+  return {
+    loading: false,
+    paths: [],
+    svg: {},
+    scoring_method: "gene",
+    success: 0,
+    message: "",
+  };
+}
+export const computed={
+  ...Vuex.mapState(["dataset_id"]),
+};
+export const watch={
+  async svg(svg) {
+    this.paths=svg.selectAll("path, circle");
+    svg.select("svg").attr({
+      width: "100%",
+      height: this.display_data? "200px":"",
     });
+    const snap=Snap(this.$refs.chart);
+    snap.append(svg);
 
-    if (this.display_data) {
-      const { plotly_config } = this.display_data;
-      const { gene_symbol } = { ...plotly_config };
-      const { data } = await axios.get(
+    if(this.display_data) {
+      const { plotly_config }=this.display_data;
+      const payload={ ...plotly_config };
+      const { gene_symbol }=payload;
+      const { data }=await axios.get(
         `/api/plot/${this.dataset_id}/svg?gene=${gene_symbol}`
       );
       this.color_svg(data);
+    } else {
+      this.color_svg();
     }
   },
-  methods: {
-    color_svg(data) {
-      let chart_data, low_color, high_color;
-      if (data) {
-        const { plotly_config } = this.display_data;
-        const { colors } = { ...plotly_config };
-        low_color = colors.low_color;
-        high_color = colors.high_color;
-        chart_data = data;
-      } else {
-        chart_data = this.chart_data;
-        low_color = this.low_color;
-        high_color = this.high_color;
-      }
+  low_color() {
+    this.color_svg();
+  },
+  mid_color() {
+    this.color_svg();
+  },
+  high_color() {
+    this.color_svg();
+  },
+  chart_data() {
+    this.color_svg();
+    this.success=this.chart_data.success;
+    this.message=this.chart_data.message;
+  },
+};
+export async function created() {
+  const svg_path=`datasets_uploaded/${this.dataset_id}.svg`;
+  Snap.load(svg_path, (svg) => {
+    this.svg=svg;
+  });
 
-      const score = chart_data.scores[this.scoring_method];
-      const paths = this.paths;
-      const { data: expression } = chart_data;
-      if (this.scoring_method === "gene" || this.scoring_method === "dataset") {
-        const { min, max } = score;
-        const color = d3
-          .scaleLinear()
-          .domain([min, max])
-          .range([low_color, high_color]); // these colors should be stored in config
+  if(this.display_data) {
+    const { plotly_config }=this.display_data;
+    const { gene_symbol }={ ...plotly_config };
+    const { data }=await axios.get(
+      `/api/plot/${this.dataset_id}/svg?gene=${gene_symbol}`
+    );
+    this.color_svg(data);
+  }
+}
+export const methods={
+  color_svg(data) {
+    let chart_data, low_color, mid_color, high_color;
+    if(data) {
+      const { plotly_config }=this.display_data;
+      const { colors }={ ...plotly_config };
+      low_color=colors.low_color;
+      mid_color=colors.mid_color;
+      high_color=colors.high_color;
+      chart_data=data;
+    } else {
+      chart_data=this.chart_data;
+      low_color=this.low_color;
+      mid_color=this.mid_color;
+      high_color=this.high_color;
+    }
 
-        const tissues = Object.keys(chart_data.data);
-
-        paths.forEach((path) => {
-          const tissue = path.node.className.baseVal;
-          if (tissues.includes(tissue)) {
-            path.attr("fill", color(expression[tissue]));
+    const score=chart_data.scores[this.scoring_method];
+    const paths=this.paths;
+    const { data: expression }=chart_data;
+    if(this.scoring_method==="gene"||this.scoring_method==="dataset") {
+      const { min, max }=score;
+      let color = null;
+      // are we doing a three- or two-color gradient?
+      if (mid_color) {
+          if (min >= 0) {
+              // All values greater than 0, do right side of three-color
+              color = d3
+                  .scaleLinear()
+                  .domain([min, max])
+                  .range([mid_color, high_color]);
+          } else if (max <= 0) {
+              // All values under 0, do left side of three-color
+              color = d3
+                  .scaleLinear()
+                  .domain([min, max])
+                  .range([low_color, mid_color]);
+          } else {
+              // We have a good value range, do the three-color
+              color = d3
+                  .scaleLinear()
+                  .domain([min, 0, max])
+                  .range([low_color, mid_color, high_color]);
           }
-        });
+      } else {
+          color = d3
+              .scaleLinear()
+              .domain([min, max])
+              .range([low_color, high_color]);
       }
-    },
+      const tissues=Object.keys(chart_data.data);
+
+      paths.forEach((path) => {
+        const tissue=path.node.className.baseVal;
+        if(tissues.includes(tissue)) {
+          path.attr("fill", color(expression[tissue]));
+        }
+      });
+    }
   },
 };
 </script>

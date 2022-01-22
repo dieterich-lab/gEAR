@@ -13,36 +13,34 @@ const datasetDisplays = httpVueLoader("./dataset-displays.vue");
 const newDisplay = httpVueLoader("./new-display.vue");
 const datasetDisplay = httpVueLoader("./dataset-display.vue");
 
-module.exports = {
-  components: {
-    datasetDisplay,
-    datasetDisplays,
-    newDisplay
+export const components={
+  datasetDisplay,
+  datasetDisplays,
+  newDisplay
+};
+export const props={
+  dataset_id: String,
+};
+export const computed={
+  ...Vuex.mapState(['user']),
+};
+export const watch={
+  dataset_id() {
+    // not elegant, but watch for ids to change
+    // and force a reload...
+    location.reload();
   },
-  props: {
-    dataset_id: String,
-  },
-  computed: {
-    ...Vuex.mapState(['user']),
-  },
-  watch: {
-    dataset_id() {
-      // not elegant, but watch for ids to change
-      // and force a reload...
-      location.reload();
-    },
-  },
-  created() {
-    sleep(500).then(() => {
-      // If CURRENT_USER is defined at this point, add information as placeholder test
-      if (CURRENT_USER) {
-        this.$store.commit('set_user', CURRENT_USER);
-      }
-    })
-    this.fetch_dataset_info(this.dataset_id);
-  },
-  methods: {
-    ...Vuex.mapActions(["fetch_dataset_info"]),
-  },
+};
+export function created() {
+  sleep(500).then(() => {
+    // If CURRENT_USER is defined at this point, add information as placeholder test
+    if(CURRENT_USER) {
+      this.$store.commit('set_user', CURRENT_USER);
+    }
+  });
+  this.fetch_dataset_info(this.dataset_id);
+}
+export const methods={
+  ...Vuex.mapActions(["fetch_dataset_info"]),
 };
 </script>

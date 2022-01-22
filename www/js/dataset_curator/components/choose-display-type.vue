@@ -47,54 +47,52 @@
 <script>
 // choose-display-type.vue
 
-module.exports = {
-  props: ['analysis_id'],
-  computed: {
-    ...Vuex.mapState([
-      "user",
-      "plot_type",
-      "dataset_id",
-      "available_plot_types",
-      "dataset_type",
-    ]),
-    display_options() {
-      const display_options = Object.keys(this.available_plot_types)
-        .filter((type) => this.available_plot_types[type])
-        .map((type, i) => type);
+export const props=['analysis_id'];
+export const computed={
+  ...Vuex.mapState([
+    "user",
+    "plot_type",
+    "dataset_id",
+    "available_plot_types",
+    "dataset_type",
+  ]),
+  display_options() {
+    const display_options=Object.keys(this.available_plot_types)
+      .filter((type) => this.available_plot_types[type])
+      .map((type, i) => type);
 
-      return display_options;
-    },
-    loading() {
-      return (
-        Object.entries(this.available_plot_types).length === 0 &&
-        this.available_plot_types.constructor === Object
-      );
-    },
+    return display_options;
   },
-  created() {
-    const user_id = this.user.id;
-    const session_id = this.user.session_id;
-    const dataset_id = this.dataset_id;
-    const analysis_id = this.analysis_id;
+  loading() {
+    return (
+      Object.entries(this.available_plot_types).length===0&&
+      this.available_plot_types.constructor===Object
+    );
+  },
+};
+export function created() {
+  const user_id=this.user.id;
+  const session_id=this.user.session_id;
+  const dataset_id=this.dataset_id;
+  const analysis_id=this.analysis_id;
+
+  this.fetch_available_plot_types({ user_id, session_id, dataset_id, analysis_id });
+}
+export const methods={
+  ...Vuex.mapActions(["fetch_available_plot_types", "set_plot_type"]),
+  update_plot_type(plot_type) {
+    this.set_plot_type(plot_type);
+    this.$emit("input", plot_type);
+  },
+};
+export const watch={
+  analysis_id(analysis_id) {
+    // When analysis ID changes, update plot types dropdown list
+    const user_id=this.user.id;
+    const session_id=this.user.session_id;
+    const dataset_id=this.dataset_id;
 
     this.fetch_available_plot_types({ user_id, session_id, dataset_id, analysis_id });
   },
-  methods: {
-    ...Vuex.mapActions(["fetch_available_plot_types", "set_plot_type"]),
-    update_plot_type(plot_type) {
-      this.set_plot_type(plot_type);
-      this.$emit("input", plot_type);
-    },
-  },
-  watch: {
-    analysis_id(analysis_id) {
-        // When analysis ID changes, update plot types dropdown list
-        const user_id = this.user.id;
-        const session_id = this.user.session_id;
-        const dataset_id = this.dataset_id;
-
-        this.fetch_available_plot_types({ user_id, session_id, dataset_id, analysis_id });
-    },
-  }
 };
 </script>

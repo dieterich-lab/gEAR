@@ -65,67 +65,64 @@ const plotlyChart = httpVueLoader("./plotly-chart.vue");
 const svgChart = httpVueLoader("./svg-chart.vue");
 const tsneChart = httpVueLoader("./tsne-chart.vue");
 
-module.exports = {
-    components: {
-      plotlyChart,
-      svgChart,
-      tsneChart,
-    },
-    data() {
-      return {
-        loading: false,
-      };
-    },
-    computed: {
-      ...Vuex.mapState([
-        'user',
-        'owner_id',
-        'dataset_id',
-        'default_display_id',
-        'config'
-      ]),
-      ...Vuex.mapGetters(['is_user_owner', 'owner_displays']),
-
-    },
-    methods: {
-      ...Vuex.mapActions([
-        'fetch_owner_displays',
-        'fetch_user_displays',
-        'fetch_default_display',
-        'update_default_display_id',
-      ]),
-      async save_as_default(display_id) {
-        const payload = {
-          display_id,
-          user_id: this.user.id,
-          dataset_id: this.dataset_id,
-        };
-
-        await $.ajax({
-          url: '/cgi/save_default_display.cgi',
-          type: 'POST',
-          data: payload,
-          dataType: 'json',
-        });
-
-        this.update_default_display_id({ display_id });
-      },
-      is_type_tsne(display_data) {
-        return (
-            display_data.plot_type === 'tsne_static' ||
-            display_data.plot_type === 'umap_static' ||
-            display_data.plot_type === 'pca_static' ||
-            display_data.plot_type === 'tsne'
-        );
-      },
-    },
-    created() {
-      if (this.dataset_id) {
-        const owner_id = this.owner_id;
-        const dataset_id = this.dataset_id;
-
-        this.fetch_owner_displays({ owner_id, dataset_id });
-      }
-    },
+export const components={
+  plotlyChart,
+  svgChart,
+  tsneChart,
+};
+export function data() {
+  return {
+    loading: false,
   };
+}
+export const computed={
+  ...Vuex.mapState([
+    'user',
+    'owner_id',
+    'dataset_id',
+    'default_display_id',
+    'config'
+  ]),
+  ...Vuex.mapGetters(['is_user_owner', 'owner_displays']),
+};
+export const methods={
+  ...Vuex.mapActions([
+    'fetch_owner_displays',
+    'fetch_user_displays',
+    'fetch_default_display',
+    'update_default_display_id',
+  ]),
+  async save_as_default(display_id) {
+    const payload={
+      display_id,
+      user_id: this.user.id,
+      dataset_id: this.dataset_id,
+    };
+
+    await $.ajax({
+      url: '/cgi/save_default_display.cgi',
+      type: 'POST',
+      data: payload,
+      dataType: 'json',
+    });
+
+    this.update_default_display_id({ display_id });
+  },
+  is_type_tsne(display_data) {
+    return (
+      display_data.plot_type==='tsne_static'||
+      display_data.plot_type==='umap_static'||
+      display_data.plot_type==='pca_static'||
+      display_data.plot_type==='tsne'
+    );
+  },
+};
+export function created() {
+  if(this.dataset_id) {
+    const owner_id=this.owner_id;
+    const dataset_id=this.dataset_id;
+
+    this.fetch_owner_displays({ owner_id, dataset_id });
+  }
+}
 </script>

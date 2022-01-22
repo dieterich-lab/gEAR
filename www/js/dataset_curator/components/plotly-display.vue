@@ -57,71 +57,69 @@ const scatterDisplay = httpVueLoader("./scatter-display.vue");
 const contourDisplay = httpVueLoader("./contour-display.vue");
 const tsnePlotlyDisplay = httpVueLoader("./tsne-plotly-display.vue");
 
-module.exports = {
-  props: {
-    display_id: {
-      type: String,
-      default: null,
-    },
+export const props={
+  display_id: {
+    type: String,
+    default: null,
   },
-  components: {
-    barDisplay,
-    lineDisplay,
-    violinDisplay,
-    scatterDisplay,
-    contourDisplay,
-    tsnePlotlyDisplay,
+};
+export const components={
+  barDisplay,
+  lineDisplay,
+  violinDisplay,
+  scatterDisplay,
+  contourDisplay,
+  tsnePlotlyDisplay,
+};
+export function data() {
+  return {
+    loading: false,
+  };
+}
+export const computed={
+  ...Vuex.mapState(["dataset_id", "plot_type", "config", "chart_data"]),
+  is_creating_new_display() {
+    return this.display_id===null;
   },
-  data() {
-    return {
-      loading: false,
-    };
+  is_there_data_to_draw() {
+    return (
+      Object.entries(this.chart_data).length!==0&&
+      this.chart_data.constructor===Object
+    );
   },
-  computed: {
-    ...Vuex.mapState(["dataset_id", "plot_type", "config", "chart_data"]),
-    is_creating_new_display() {
-      return this.display_id === null;
-    },
-    is_there_data_to_draw() {
-      return (
-        Object.entries(this.chart_data).length !== 0 &&
-        this.chart_data.constructor === Object
-      );
-    },
-  },
-  created() {
-    this.fetch_h5ad_info({
-      dataset_id: this.dataset_id,
-      analysis: this.config.analysis,
-    });
-    if (!this.is_creating_new_display) {
-      // if we are creating a new display, we do not
-      // want to automatically generate a chart, and
-      // wait for user to specify config options
-      const config = this.config;
-      const plot_type = this.plot_type;
-      const dataset_id = this.dataset_id;
-      this.fetch_plotly_data({ config, plot_type, dataset_id });
-    }
-  },
-  methods: {
-    ...Vuex.mapActions(["fetch_h5ad_info", "fetch_plotly_data"]),
-    update_color({ name, color }) {
-      const { data } = this.chart_data.plot_json;
-      data
-        .filter((el) => el.name === name)
-        .forEach(({ marker }) => {
-          marker.color = color;
-        });
+};
+export function created() {
+  this.fetch_h5ad_info({
+    dataset_id: this.dataset_id,
+    analysis: this.config.analysis,
+  });
+  if(!this.is_creating_new_display) {
+    // if we are creating a new display, we do not
+    // want to automatically generate a chart, and
+    // wait for user to specify config options
+    const config=this.config;
+    const plot_type=this.plot_type;
+    const dataset_id=this.dataset_id;
+    this.fetch_plotly_data({ config, plot_type, dataset_id });
+  }
+}
+export const methods={
+  ...Vuex.mapActions(["fetch_h5ad_info", "fetch_plotly_data"]),
+  update_color({ name, color }) {
+    const { data }=this.chart_data.plot_json;
+    data
+      .filter((el) => el.name===name)
+      .forEach(({ marker }) => {
+        marker.color=color;
+      });
 
-      const { colors } = this.config;
-      colors[name] = color;
+    const { colors }=this.config;
+    colors[name]=color;
 
-      // because vue wont detect these changes
-      // we explitly reassign chart data with
-      // new object
-      this.chart_data = { ...this.chart_data };
-    },
+    // because vue wont detect these changes
+    // we explitly reassign chart data with
+    // new object
+    this.chart_data={ ...this.chart_data };
   },
 };
 </script>

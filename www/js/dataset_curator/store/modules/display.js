@@ -31,6 +31,7 @@ const store = new Vuex.store({
        state.colors = {
           // default colors (purple)
           low_color: "#e7d1d5",
+          mid_color: null,
           high_color: "#401362",
         };
       }

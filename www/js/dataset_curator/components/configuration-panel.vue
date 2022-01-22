@@ -33,29 +33,27 @@
 const primaryConfig = httpVueLoader("./primary-config.vue");
 const storedAnalysisConfig = httpVueLoader("./stored-analysis-config.vue");
 
-module.exports = {
-  components: {
-    primaryConfig,
-    storedAnalysisConfig,
+export const components={
+  primaryConfig,
+  storedAnalysisConfig,
+};
+export function data() {
+  return {
+    selected: "primary",
+  };
+}
+export const computed={
+  ...Vuex.mapState(["dataset_type"]),
+};
+export const watch={
+  selected(newValue) {
+    this.set_dataset_type(newValue);
   },
-  data() {
-    return {
-      selected: "primary",
-    };
-  },
-  computed: {
-    ...Vuex.mapState(["dataset_type"]),
-  },
-  watch: {
-    selected(newValue) {
-      this.set_dataset_type(newValue);
-    },
-  },
-  created() {
-    this.selected = this.dataset_type;
-  },
-  methods: {
-    ...Vuex.mapActions(["set_dataset_type"]),
-  },
+};
+export function created() {
+  this.selected=this.dataset_type;
+}
+export const methods={
+  ...Vuex.mapActions(["set_dataset_type"]),
 };
 </script>

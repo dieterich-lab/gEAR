@@ -11,15 +11,12 @@
 const userDisplays = httpVueLoader("./user-displays.vue");
 const ownerDisplays = httpVueLoader("./owner-displays.vue");
 
-module.exports = {
-  computed: {
-    ...Vuex.mapState(["owner_id"]),
-    ...Vuex.mapGetters(["is_user_owner"]),
-  },
-  components: {
-    userDisplays,
-    ownerDisplays,
-  },
-  //TODO: change dataset_id here and not in dataset-curator
+export const computed={
+  ...Vuex.mapState(["owner_id"]),
+  ...Vuex.mapGetters(["is_user_owner"]),
+};
+export const components={
+  userDisplays,
+  ownerDisplays,
 };
 </script>

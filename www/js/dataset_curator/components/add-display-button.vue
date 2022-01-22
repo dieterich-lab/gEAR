@@ -16,28 +16,26 @@
 
 <script>
 // add-display-button.vue
-module.exports = {
-  data() {
+export function data() {
+  return {
+    isHovering: false,
+    displayCard: true,
+  };
+}
+export const computed={
+  ...Vuex.mapState(["dataset_id"]),
+  classed() {
     return {
-      isHovering: false,
-      displayCard: true,
+      hovering: this.isHovering,
+      "display-card": true,
+      elevation: true,
+      "border-0": true,
     };
   },
-  computed: {
-    ...Vuex.mapState(["dataset_id"]),
-    classed() {
-      return {
-        hovering: this.isHovering,
-        "display-card": true,
-        elevation: true,
-        "border-0": true,
-      };
-    },
-  },
-  methods: {
-    routeToAddDisplay() {
-      this.$router.push(`displays/new`);
-    },
+};
+export const methods={
+  routeToAddDisplay() {
+    this.$router.push(`displays/new`);
   },
 };
 </script>

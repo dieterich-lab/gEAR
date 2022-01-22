@@ -12,10 +12,8 @@
 const chooseStoredAnalysis = httpVueLoader("./choose-stored-analysis.vue");
 const primaryConfig = httpVueLoader("./primary-config.vue");
 
-module.exports = {
-  components: { chooseStoredAnalysis, primaryConfig },
-  computed: {
-    ...Vuex.mapState(["analysis"]),
-  },
+export const components={ chooseStoredAnalysis, primaryConfig };
+export const computed={
+  ...Vuex.mapState(["analysis"]),
 };
 </script>

@@ -19,15 +19,13 @@
 <script>
 // display-name-input.vue
 
-module.exports = {
-  computed: {
-    ...Vuex.mapState(["label"]),
-  },
-  methods: {
-    ...Vuex.mapActions(["set_label"]),
-    update_display_name(label) {
-      this.set_label(label);
-    },
+export const computed={
+  ...Vuex.mapState(["label"]),
+};
+export const methods={
+  ...Vuex.mapActions(["set_label"]),
+  update_display_name(label) {
+    this.set_label(label);
   },
 };
 </script>

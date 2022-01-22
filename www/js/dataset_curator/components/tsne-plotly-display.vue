@@ -63,34 +63,31 @@ const displayPalettes = httpVueLoader("./display-palettes.vue");
 const saveDisplayButton = httpVueLoader("./save-display-button.vue");
 
 // Just a clone of bar-display.vue
-module.exports = {
-  components: {
-    plotlyArguments,
-    geneSymbolInput,
-    displayNameInput,
-    displayOrder,
-    displayColors,
-    displayPalettes,
-    saveDisplayButton,
+export const components={
+  plotlyArguments,
+  geneSymbolInput,
+  displayNameInput,
+  displayOrder,
+  displayColors,
+  displayPalettes,
+  saveDisplayButton,
+};
+export const props={
+  display_id: String,
+};
+export function data() {
+  return {
+    is_gene_available: true,
+  };
+}
+export const computed={
+  ...Vuex.mapState(["config"]),
+  is_there_data_to_save() {
+    return (
+      "x_axis" in this.config&&
+      "gene_symbol" in this.config&&
+      this.config.gene_symbol!==""
+    );
   },
-  props: {
-    display_id: String,
-  },
-  data() {
-    return {
-      is_gene_available: true,
-    };
-  },
-  computed: {
-    ...Vuex.mapState(["config"]),
-    is_there_data_to_save() {
-      return (
-        "x_axis" in this.config &&
-        "gene_symbol" in this.config &&
-        this.config.gene_symbol !== ""
-      );
-    },
-  },
-
 };
 </script>

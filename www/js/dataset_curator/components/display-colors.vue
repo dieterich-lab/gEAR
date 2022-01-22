@@ -24,45 +24,43 @@
 <script>
 // display-colors.vue
 
-module.exports = {
-  data() {
-    return {
-      colors_array: [],
-    };
-  },
-  computed: {
-    ...Vuex.mapState(["config"]),
-  },
-  created() {
-    // Needed for initial display after first plotting preview
-    this.get_colors_array();
+export function data() {
+  return {
+    colors_array: [],
+  };
+}
+export const computed={
+  ...Vuex.mapState(["config"]),
+};
+export function created() {
+  // Needed for initial display after first plotting preview
+  this.get_colors_array();
 
-    this.unsubscribe = this.$store.subscribe((mutation, state) => {
-      if (mutation.type === "set_colors") {
-        //console.log("triggered set_colors");
-        this.get_colors_array();
+  this.unsubscribe=this.$store.subscribe((mutation, state) => {
+    if(mutation.type==="set_colors") {
+      //console.log("triggered set_colors");
+      this.get_colors_array();
+    }
+  });
+}
+export function beforeDestroy() {
+  // If not present, subscriber will not stop even after component is destroyed
+  this.unsubscribe();
+}
+export const methods={
+  ...Vuex.mapActions(["set_color"]),
+  get_colors_array() {
+    this.colors_array=Object.entries(this.config.colors).map(
+      ([key, val]) => {
+        return {
+          name: key,
+          color: val,
+        };
       }
-    });
+    );
   },
-  beforeDestroy() {
-    // If not present, subscriber will not stop even after component is destroyed
-    this.unsubscribe();
-  },
-  methods: {
-    ...Vuex.mapActions(["set_color"]),
-    get_colors_array() {
-      this.colors_array = Object.entries(this.config.colors).map(
-        ([key, val]) => {
-          return {
-            name: key,
-            color: val,
-          };
-        }
-      );
-    },
-    update_color(name, color) {
-      this.set_color({ name, color });
-    },
+  update_color(name, color) {
+    this.set_color({ name, color });
   },
 };
 </script>

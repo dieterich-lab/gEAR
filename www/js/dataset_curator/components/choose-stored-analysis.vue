@@ -25,36 +25,34 @@
 <script>
 // choose-stored-analysis.vue
 
-module.exports = {
-    data() {
-      return {
-        selected_analysis: null,
-        loading: true,
-        public_analyses: [],
-        private_analyses: [],
-      };
-    },
-    async created() {
-      this.loading = true;
-      const { data } = await axios.get(
-        `/./api/h5ad/${this.dataset_id}/analyses`
-      );
-      const { public: public_analyses, private: private_analyses } = data;
-
-      this.public_analyses = public_analyses;
-      this.private_analyses = private_analyses;
-      this.loading = false;
-    },
-    watch: {
-        selected_analysis(new_analysis, old_analysis) {
-        this.set_analysis(new_analysis);
-      },
-    },
-    methods: {
-      ...Vuex.mapActions(['set_analysis']),
-    },
-    computed: {
-      ...Vuex.mapState(['dataset_id', 'config']),
-    },
+export function data() {
+  return {
+    selected_analysis: null,
+    loading: true,
+    public_analyses: [],
+    private_analyses: [],
   };
+}
+export async function created() {
+  this.loading=true;
+  const { data }=await axios.get(
+    `/./api/h5ad/${this.dataset_id}/analyses`
+  );
+  const { public: public_analyses, private: private_analyses }=data;
+
+  this.public_analyses=public_analyses;
+  this.private_analyses=private_analyses;
+  this.loading=false;
+}
+export const watch={
+  selected_analysis(new_analysis, old_analysis) {
+    this.set_analysis(new_analysis);
+  },
+};
+export const methods={
+  ...Vuex.mapActions(['set_analysis']),
+};
+export const computed={
+  ...Vuex.mapState(['dataset_id', 'config']),
+};
 </script>

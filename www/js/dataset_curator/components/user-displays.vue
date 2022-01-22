@@ -90,118 +90,114 @@ const svgChart = httpVueLoader("./svg-chart.vue");
 const tsneChart = httpVueLoader("./tsne-chart.vue");
 const addDisplayButton = httpVueLoader("./add-display-button.vue");
 
-module.exports = {
-  components: {
-    plotlyChart,
-    svgChart,
-    tsneChart,
-    addDisplayButton,
-  },
-  data() {
-    return {
-      // deleteModal: false,
-      loading: false,
-    };
-  },
-  computed: {
-    ...Vuex.mapState(["user", "dataset_id", "default_display_id", "config"]),
-    ...Vuex.mapGetters(["user_displays"]),
-    get_config_analysis_id() {
-      if (
-        typeof this.config.analysis == "undefined" ||
-        this.config.analysis == null
-      ) {
-        return null;
-      } else {
-        return this.config.analysis.id;
-      }
-    },
-    user_id() {
-      return this.user.id;
-    },
-  },
-  methods: {
-    ...Vuex.mapActions([
-      "fetch_user_displays",
-      "fetch_default_display",
-      "remove_display",
-      "update_default_display_id",
-    ]),
-    is_type_tsne(display_data) {
-      return (
-        display_data.plot_type === "tsne_static" ||
-        display_data.plot_type === "umap_static" ||
-        display_data.plot_type === "pca_static" ||
-        display_data.plot_type === "tsne"
-      );
-    },
-    edit_display(display_id) {
-      // this.$router.replace(`/dataset/${this.dataset_id}/displays/${display_id}/edit`)
-      this.$router.push(`displays/${display_id}/edit`);
-    },
-    get_default_display() {
-      const user_id = this.user_id;
-      const dataset_id = this.dataset_id;
-
-      return $.ajax({
-        url: "/cgi/get_default_display.cgi",
-        type: "POST",
-        data: { user_id, dataset_id },
-        dataType: "json",
-      });
-    },
-    async save_as_default(display_id) {
-      const payload = {
-        display_id,
-        user_id: this.user.id,
-        dataset_id: this.dataset_id,
-      };
-      await $.ajax({
-        url: "/cgi/save_default_display.cgi",
-        type: "POST",
-        data: payload,
-        dataType: "json",
-      });
-
-      this.update_default_display_id({ display_id });
-    },
-    async delete_display(display_id) {
-      const payload = {
-        id: display_id,
-        user_id: this.user_id,
-      };
-
-      const res = await $.ajax({
-        url: "/cgi/delete_dataset_display.cgi",
-        type: "POST",
-        data: payload,
-        dataType: "json",
-      });
-
-      if (res.success) {
-        // update our displays so it is removed from the
-        // cards that are currently rendered
-        this.remove_display({ display_id });
-      }
-    },
-  },
-  created() {
-    if (this.dataset_id) {
-      const user_id = this.user_id;
-      const dataset_id = this.dataset_id;
-
-      this.fetch_default_display({ user_id, dataset_id });
-      this.fetch_user_displays({ user_id, dataset_id });
+export const components={
+  plotlyChart,
+  svgChart,
+  tsneChart,
+  addDisplayButton,
+};
+export function data() {
+  return {
+    // deleteModal: false,
+    loading: false,
+  };
+}
+export const computed={
+  ...Vuex.mapState(["user", "dataset_id", "default_display_id", "config"]),
+  ...Vuex.mapGetters(["user_displays"]),
+  get_config_analysis_id() {
+    if(typeof this.config.analysis=="undefined"||
+      this.config.analysis==null) {
+      return null;
+    } else {
+      return this.config.analysis.id;
     }
   },
-  beforeMount() {
-    if (this.dataset_id) {
-      const user_id = this.user_id;
-      const dataset_id = this.dataset_id;
+  user_id() {
+    return this.user.id;
+  },
+};
+export const methods={
+  ...Vuex.mapActions([
+    "fetch_user_displays",
+    "fetch_default_display",
+    "remove_display",
+    "update_default_display_id",
+  ]),
+  is_type_tsne(display_data) {
+    return (
+      display_data.plot_type==="tsne_static"||
+      display_data.plot_type==="umap_static"||
+      display_data.plot_type==="pca_static"||
+      display_data.plot_type==="tsne"
+    );
+  },
+  edit_display(display_id) {
+    // this.$router.replace(`/dataset/${this.dataset_id}/displays/${display_id}/edit`)
+    this.$router.push(`displays/${display_id}/edit`);
+  },
+  get_default_display() {
+    const user_id=this.user_id;
+    const dataset_id=this.dataset_id;
 
-      this.fetch_default_display({ user_id, dataset_id });
-      this.fetch_user_displays({ user_id, dataset_id });
+    return $.ajax({
+      url: "/cgi/get_default_display.cgi",
+      type: "POST",
+      data: { user_id, dataset_id },
+      dataType: "json",
+    });
+  },
+  async save_as_default(display_id) {
+    const payload={
+      display_id,
+      user_id: this.user.id,
+      dataset_id: this.dataset_id,
+    };
+    await $.ajax({
+      url: "/cgi/save_default_display.cgi",
+      type: "POST",
+      data: payload,
+      dataType: "json",
+    });
+
+    this.update_default_display_id({ display_id });
+  },
+  async delete_display(display_id) {
+    const payload={
+      id: display_id,
+      user_id: this.user_id,
+    };
+
+    const res=await $.ajax({
+      url: "/cgi/delete_dataset_display.cgi",
+      type: "POST",
+      data: payload,
+      dataType: "json",
+    });
+
+    if(res.success) {
+      // update our displays so it is removed from the
+      // cards that are currently rendered
+      this.remove_display({ display_id });
     }
   },
 };
+export function created() {
+  if(this.dataset_id) {
+    const user_id=this.user_id;
+    const dataset_id=this.dataset_id;
+
+    this.fetch_default_display({ user_id, dataset_id });
+    this.fetch_user_displays({ user_id, dataset_id });
+  }
+}
+export function beforeMount() {
+  if(this.dataset_id) {
+    const user_id=this.user_id;
+    const dataset_id=this.dataset_id;
+
+    this.fetch_default_display({ user_id, dataset_id });
+    this.fetch_user_displays({ user_id, dataset_id });
+  }
+}
 </script>

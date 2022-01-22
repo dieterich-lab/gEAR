@@ -38,26 +38,24 @@ const displayNameInput = httpVueLoader("./display-name-input.vue");
 const displayOrder = httpVueLoader("./display-order.vue");
 const saveDisplayButton = httpVueLoader("./save-display-button.vue");
 
-module.exports = {
-  props: {
-    display_id: String,
-  },
-  components: {
-    tsneArguments,
-    geneSymbolInput,
-    displayNameInput,
-    displayOrder,
-    saveDisplayButton,
-  },
-  data() {
-    return {
-      is_gene_available: true,
-      show_tsne: false,
-      loading: false,
-    };
-  },
-  computed: {
-    ...Vuex.mapState(["dataset_id", "config", "dataset_type", "analysis"]),
-  },
+export const props={
+  display_id: String,
+};
+export const components={
+  tsneArguments,
+  geneSymbolInput,
+  displayNameInput,
+  displayOrder,
+  saveDisplayButton,
+};
+export function data() {
+  return {
+    is_gene_available: true,
+    show_tsne: false,
+    loading: false,
+  };
+}
+export const computed={
+  ...Vuex.mapState(["dataset_id", "config", "dataset_type", "analysis"]),
 };
 </script>
