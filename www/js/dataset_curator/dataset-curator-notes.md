@@ -16,6 +16,12 @@ I wanted to make a chart of this, but LucidCharts has an entity limit :-(
 
 ## Component Hierarchy
 
+### Stuff outside the app
+
+* Login controls
+* Header
+* Footer
+
 ### Top-level app
 
 * app

@@ -11,6 +11,11 @@ const store = new Vuex.store({
 
     user_displays: [],
     owner_displays: [],
+
+    //let plotConfig = {};  // Plot config that is passed to API or stored in DB
+    //let displayId = null;
+    //let obsLevels = null;
+
   },
   mutations: {
     set_dataset_id(state, dataset_id) {
