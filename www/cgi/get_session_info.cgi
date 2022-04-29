@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 For a given session_id, returns the user information.

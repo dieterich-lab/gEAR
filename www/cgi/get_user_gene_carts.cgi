@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Gets a user's gene carts and any others the user has access

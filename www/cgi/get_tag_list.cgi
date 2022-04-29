@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Returns a list of tags from the database.

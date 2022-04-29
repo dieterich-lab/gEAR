@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Changes the access_level of a dataset via the 'change access' button in the dataset_manager

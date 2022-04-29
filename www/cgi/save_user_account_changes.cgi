@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Save changes to user's gEAR account

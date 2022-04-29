@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 This copies an entire analysis, with images, into another place in the analysis

@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Used by gene_cart_manager.html, this script focuses on searching gene carts and

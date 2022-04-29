@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 This reads an image file created by a gEAR plotting function and prints it as a binary

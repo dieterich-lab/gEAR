@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Produces a violin plto using the seaborn library using an H5AD file as its source.

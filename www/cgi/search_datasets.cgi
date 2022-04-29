@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Used by by dataset_explorer.html, this script focuses on searching datasets and

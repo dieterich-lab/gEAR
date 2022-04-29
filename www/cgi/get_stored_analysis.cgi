@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Used by analyze_dataset.html, this script gets the JSON for a single stored analysis

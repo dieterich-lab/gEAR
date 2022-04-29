@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Removes a layout via the 'delete' button in the dataset_manager

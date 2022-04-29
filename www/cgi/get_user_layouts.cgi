@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Queries a list of data for all layouts the user passed (via session ID) is able to see.

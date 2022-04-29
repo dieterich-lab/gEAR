@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Display entries are usually kept in the database, but for some analysis types (like embedded 

@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 We often want to generate a plot with R and make it the source for an image in gEAR,

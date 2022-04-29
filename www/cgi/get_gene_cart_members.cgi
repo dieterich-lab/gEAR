@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Gets the gene symbols of a gene cart. Returns gene cart member ID's and Gene symbols 

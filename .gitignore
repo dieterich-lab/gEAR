@@ -16,3 +16,5 @@ www/tests/test_dataset_curator_plotly.py
 www/contact_screenshots/files/*
 www/uploads/files/*
 www/datasets_epigenetic/uploads/files/*
+
+/local

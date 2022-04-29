@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Uses the EpiViz gene lookup utility written by Jayaram to provide information about 

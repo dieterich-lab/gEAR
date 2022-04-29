@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 -Receives dataset upload data from upload_epigenetic_dataset.js.

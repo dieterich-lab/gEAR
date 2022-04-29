@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Changes the information of a gene cart via .is-editable elements in the Gene Cart Manager

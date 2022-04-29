@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Given a dataset_id, returns a list of users that dataset has been shared with.

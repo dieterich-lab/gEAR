@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Changes the information of a dataset via .is-editable elements in the Dataset Explorer

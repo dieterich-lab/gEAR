@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Removes a dataset from a layout via the 'remove from profile' button in the dataset_manager

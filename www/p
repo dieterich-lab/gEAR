@@ -1,4 +1,5 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
+
 '''
 Redirects short permalink urls to actual long url
 

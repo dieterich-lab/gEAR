@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Creates a Github issue from a submitted comment on the gEAR page.

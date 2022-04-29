@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 Used by projection.html, this script gets a list of the available analysis pattern files.

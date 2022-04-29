@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 """
 Searches the reference annotations for genes and returns them and their complete annotations.-
 """

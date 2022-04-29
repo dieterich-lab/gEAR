@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 For a given dataset_id, returns a unique list of the conditions within that dataset.

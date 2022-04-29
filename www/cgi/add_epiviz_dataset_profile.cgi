@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#! /usr/bin/env python3
 
 """
 - Receives dataset upload data from epiviz_panel_designer.js.
