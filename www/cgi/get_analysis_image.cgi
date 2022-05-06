@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 This reads an image file created by a gEAR plotting function and prints it as a binary

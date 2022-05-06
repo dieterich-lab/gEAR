@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Gets the gene symbols of a gene cart. Returns gene cart member ID's and Gene symbols 

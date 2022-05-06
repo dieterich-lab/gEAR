@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Display entries are usually kept in the database, but for some analysis types (like embedded 

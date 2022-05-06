@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Loads user question/comment and any new 'tags' into the database

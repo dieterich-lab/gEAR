@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Used by analyze_dataset.html, this script gets the JSON for a single stored analysis

@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Removes a dataset from a layout via the 'remove from profile' button in the dataset_manager

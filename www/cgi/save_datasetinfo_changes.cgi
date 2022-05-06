@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Changes the information of a dataset via .is-editable elements in the Dataset Explorer

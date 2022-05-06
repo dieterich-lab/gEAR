@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Uses the EpiViz gene lookup utility written by Jayaram to provide information about 

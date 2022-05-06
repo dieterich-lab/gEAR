@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Used by gene_cart_manager.html, this script focuses on searching gene carts and

@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Used by analyze_dataset.html, this script gets a list of the H5AD datasets the user can view.

@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Changes the information of a gene cart via .is-editable elements in the Gene Cart Manager
