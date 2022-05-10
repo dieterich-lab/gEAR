@@ -8,8 +8,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] - 2022-04
 
 ### Changed
-- WSGI script (virtual environment)
+- CGI scripts (adjust shebang, see install notes)
 - MariaDB-related ini/setup files
 
 ### Fixed
-- Shebang in CGI, p scripts (www)
+- 'ValueError: DataFrame index must be unique for orient='index'` in lib/gear/metadata.py (metadata upload)

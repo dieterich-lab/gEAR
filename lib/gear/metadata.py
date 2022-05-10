@@ -444,7 +444,8 @@ class Metadata:
         if self.metadata is None:
             raise Exception("No values to evaluate. Please load a metadata file first.")
 
-
+        self.metadata = self.metadata[self.metadata.index.notnull()]
+        
         if file_path is None:
             #Remove non-metadata columns
             for col in self.metadata.columns.values:
