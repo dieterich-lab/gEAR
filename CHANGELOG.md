@@ -12,4 +12,5 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - MariaDB-related ini/setup files
 
 ### Fixed
-- 'ValueError: DataFrame index must be unique for orient='index'` in lib/gear/metadata.py (metadata upload)
+- `ValueError: DataFrame index must be unique for orient='index'`, `ValueError: cannot reindex from a duplicate axis:` in lib/gear/metadata.py (drop NaNs from metadata)
+- `AttributeError: module 'cgi' has no attribute 'escape'` in www/cgi (removed from Python 3.8, use html)

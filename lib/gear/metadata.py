@@ -68,6 +68,7 @@ class Metadata:
         if self.file_path is not None:
             self.read_file(file_path=file_path)
 
+        self.metadata = self.metadata[self.metadata.index.notnull()]
 
     def read_file(self, file_path=None):
         """
@@ -444,7 +445,6 @@ class Metadata:
         if self.metadata is None:
             raise Exception("No values to evaluate. Please load a metadata file first.")
 
-        self.metadata = self.metadata[self.metadata.index.notnull()]
         
         if file_path is None:
             #Remove non-metadata columns
