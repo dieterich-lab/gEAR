@@ -7,8 +7,12 @@ or H5AD file.
 
 from shutil import copyfileobj
 import sys
-import cgi, json
+import cgi, html
+import json
 import os
+
+# from Python 3.8
+cgi.escape = html.escape
 
 lib_path = os.path.abspath(os.path.join('..', '..', 'lib'))
 sys.path.append(lib_path)

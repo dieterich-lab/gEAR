@@ -8,7 +8,7 @@ dataset & dataset_epiviz
 """
 
 
-import cgi
+import cgi, html
 from datetime import datetime
 import json
 import numpy as np
@@ -16,6 +16,8 @@ import os, sys
 import re
 import shutil
 
+# from Python 3.8
+cgi.escape = html.escape
 
 lib_path = os.path.abspath(os.path.join('..', '..', 'lib'))
 sys.path.append(lib_path)
