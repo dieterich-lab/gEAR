@@ -83,13 +83,18 @@ def main():
         
         if expression_filename.endswith('.xlsx'):
             dest_user_file = user_upload_dest_base + '/' + dataset_uid + '.xlsx'
+            shutil.move(source_user_file, dest_user_file)
         elif expression_filename.endswith('.tar'):
             dest_user_file = user_upload_dest_base + '/' + dataset_uid + '.tar'
+            shutil.move(source_user_file, dest_user_file)
         elif expression_filename.endswith('.gz'):
             # Can't search for .tar.gz because many duplicate upload steps create files like: GSE11347.tar (13).gz
             dest_user_file = user_upload_dest_base + '/' + dataset_uid + '.tar.gz'
+            shutil.move(source_user_file, dest_user_file)
+        elif expression_filename.endswith('.h5ad'):
+            pass # need to fix this (and data download)
 
-        shutil.move(source_user_file, dest_user_file)
+        #shutil.move(source_user_file, dest_user_file)
 
         # Write metadata to gEAR MySQL. Set load_status = 'completed'
         metadata.save_to_mysql(status='completed')
