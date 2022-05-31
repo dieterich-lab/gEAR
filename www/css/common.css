@@ -55,7 +55,7 @@ div#funding > .container {
 }
 div#main_content {
     /* this needs to be the height of the gEAR logo plus spacing */
-    margin-top: 40px;
+    margin-top: var(--logo-height);
 }
 .shown_later {
     display: none;
@@ -67,7 +67,7 @@ footer {
   bottom: 0;
   height: 200px; /* matches padding in body */
   max-width: 100%;
-  width: 98%;
+  width: 100%;
   text-align: center;
 }
 h1 {
@@ -128,9 +128,9 @@ a#create_acct_link, button#forgot_password_link {
     color: white;
 }
 a#main_logo {
-    background-color: rgb(255,255,255);
-    height: 75px;                        /* be sure to set height & width */
-    width:  126px;
+    background-color: var(--logo-bg-color);
+    height: var(--logo-height);                        /* be sure to set height & width */
+    width:  var(--logo-width);
     position: absolute;
     left: 100px;
     top: 0;
@@ -141,8 +141,8 @@ a#main_logo {
     overflow: hidden;
 
     border-radius: 4px;
-      -webkit-box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15), 0 1px 5px rgba(0, 0, 0, .075);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15), 0 1px 5px rgba(0, 0, 0, .075);
+      -webkit-box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15), 0 1px 5px rgba(255, 255, 255, .075);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15), 0 1px 5px rgba(255, 255, 255, .075);
 }
 button#btn_sign_in {
     margin-right: 5px;
