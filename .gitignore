@@ -17,4 +17,5 @@ www/contact_screenshots/files/*
 www/uploads/files/*
 www/datasets_epigenetic/uploads/files/*
 
-/local
+# local directory
+/local/
