@@ -13,8 +13,8 @@ CREATE TABLE guser (
 ) ENGINE=INNODB DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;
 
 # password is a hashlib md5 hexdigest
-INSERT INTO guser (id, user_name, email, institution, pass, updates_wanted, is_admin)
-       VALUES (0, 'admin', 'boileau@uni-heidelberg.de', 'Heidelberg University Hospital', 'fcdf1dc2c1ef7dec3dbb1a6e2c5e3c8a', 0, 1);
+INSERT INTO guser (id, user_name, email, institution, pass, updates_wanted, is_admin, is_gear_curator)
+       VALUES (0, 'admin', 'admin@localhost', 'Heidelberg University Hospital', '9dd1661d830f0a047ea6c8cf3954701f', 0, 1, 1);
 
 # Group is a reserved word, so we get gEAR Group (ggroup)
 CREATE TABLE ggroup (
@@ -52,17 +52,15 @@ CREATE TABLE organism (
 
 ## DO NOT change these values without making corresponding changes in the annotation loading scripts
 INSERT INTO organism (id, label, genus, species, strain, taxon_id)
-       VALUES (1, 'Mouse', 'Mus', 'musculus', NULL, 10090);
+       VALUES (1, 'Human', 'Homo', 'sapiens', 'sapiens', 9606);
 INSERT INTO organism (id, label, genus, species, strain, taxon_id)
-       VALUES (2, 'Human', 'Homo', 'sapiens', 'sapiens', 9606);
+       VALUES (2, 'Mouse', 'Mus', 'musculus', NULL, 10090);
 INSERT INTO organism (id, label, genus, species, strain, taxon_id)
-       VALUES (3, 'Zebrafish', 'Danio', 'rerio', NULL, 7955);
+       VALUES (3, 'Rat', 'Rattus', 'norvegicus', NULL, 10116);
 INSERT INTO organism (id, label, genus, species, strain, taxon_id)
-       VALUES (5, 'Chicken', 'Gallus', 'gallus', NULL, 9031);
+       VALUES (4, 'Pig', 'Sus', 'scrofa', NULL, 9823);
 INSERT INTO organism (id, label, genus, species, strain, taxon_id)
-       VALUES (6, 'Rat', 'Rattus', 'norvegicus', NULL, 10116);
-INSERT INTO organism (id, label, genus, species, strain, taxon_id)
-       VALUES (7, 'Marmoset', 'Callithrix', 'jacchus', 'jacchus', 9483);
+       VALUES (5, 'Zebrafish', 'Danio', 'rerio', NULL, 7955);
 
 CREATE TABLE gene (
        id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -298,9 +296,7 @@ CREATE TABLE layout (
           REFERENCES guser(id)
           ON DELETE CASCADE
 ) ENGINE=INNODB DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;
-INSERT INTO layout VALUES (0, 0, NULL, "Hearing (default)", 1);
-INSERT INTO layout VALUES (10000, 0, NULL, "Brain development (default)", 0);
-INSERT INTO layout VALUES (10001, 0, NULL, "Huntingtons disease (default)", 0);
+INSERT INTO layout VALUES (0, 0, NULL, "Human heart (default)", 1);
 
 CREATE TABLE layout_members (
        id                       INT PRIMARY KEY AUTO_INCREMENT,
