@@ -296,6 +296,7 @@
                        <div class="col-sm-3"><span class="att_label">Added</span> {{:date_formatted}}</div>
                      </div>
                      <div class="row no-gutters">
+                       <div class="col-sm-3"><span class="att_label">Assembly</span>{{if assembly}} {{:assembly}}{{else}} Not given{{/if}}</div>
                        <div class="col-sm-3"><span class="att_label">Annotation source</span>{{if annotation_source}} {{:annotation_source}}{{else}} Not given{{/if}}</div>
                        <div class="col-sm-3"><span class="att_label">Version</span> {{if annotation_release}} {{:annotation_release}}{{else}} Not given{{/if}}</div>
                        <!-- Any changes to the Pubmed or GEO elements here need to be reflected in the .edit_dataset_save handler -->

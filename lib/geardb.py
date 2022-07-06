@@ -1292,6 +1292,7 @@ class Dataset:
     annotation_source: str = None
     plot_default: str = None
     annotation_release: int = None
+    assembly: str = None
     # derived, here for convenience
     gene_count: int = None
     obs_count: int = None
@@ -1553,7 +1554,7 @@ class DatasetCollection:
                   d.dtype, u.id, u.user_name, d.schematic_image, d.share_id,
                   d.math_default, d.marked_for_removal, d.date_added, d.load_status,
                   IFNULL(GROUP_CONCAT(t.label), 'NULL') as tags,
-                  d.annotation_source, d.annotation_release, d.organism_id
+                  d.annotation_source, d.annotation_release, d.organism_id, d.assembly
              FROM dataset d
                   JOIN organism o ON d.organism_id=o.id
                   JOIN guser u ON d.owner_id=u.id
@@ -1564,7 +1565,7 @@ class DatasetCollection:
         GROUP BY d.id, d.title, o.label, d.pubmed_id, d.geo_id, d.is_public, d.ldesc,
                    d.dtype, u.id, u.user_name, d.schematic_image, d.share_id,
                    d.math_default, d.marked_for_removal, d.date_added, d.load_status,
-                   d.annotation_source, d.annotation_release, d.organism_id
+                   d.annotation_source, d.annotation_release, d.organism_id, d.assembly
         """
         for id in ids:
             cursor.execute(qry, (id,))
@@ -1604,7 +1605,8 @@ class DatasetCollection:
                                   date_added=date_added,
                                   load_status=row[15],
                                   annotation_source=row[17],
-                                  annotation_release=row[18]
+                                  annotation_release=row[18],
+                                  assembly=row[20]
                 )
 
                 # Add supplemental attributes this method created previously

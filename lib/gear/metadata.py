@@ -23,6 +23,7 @@ def is_na(value):
     else:
         return False
 
+
 def get_value_from_df(df, index_label):
     """
     Given a dataframe and an index row label, return the value from column 'value',
@@ -61,6 +62,8 @@ class Metadata:
         2. validate information
         3. upload metadata to gEAR MySQL
     """
+    
+    
     def __init__(self, metadata=None, file_path=None):
         self.metadata = metadata
         self.file_path = file_path
@@ -69,6 +72,7 @@ class Metadata:
             self.read_file(file_path=file_path)
 
         self.metadata = self.metadata[self.metadata.index.notnull()]
+
 
     def read_file(self, file_path=None):
         """
@@ -183,7 +187,7 @@ class Metadata:
         validator = mdv()
         is_valid = True
 
-        #check for empty required fields
+        # check for empty required fields
         for idx, v in df.iterrows():
             if idx in validator.required_atts:
                 df.loc[idx, 'is_required'] = 1
@@ -193,34 +197,13 @@ class Metadata:
                     df.loc[idx, 'message'] = "This field is required. "
                     print("This field is required - {}".format(idx), file=sys.stderr)
 
-        #check email format
-        #email = df.loc['contact_email', 'value']
-        #if is_na(email) is True:
-        #    df.loc['contact_email', 'message'] = "This field is required. Please provide a valid email. "
-        #else:
-        #    is_email_valid = mdv.validate_email(email)
-        #    if is_email_valid is False:
-        #        is_valid = False
-        #        df.loc['contact_email', 'message'] = "This field is required. The email does not seem valid. Please check it is typed correctly. "
-
-        #check pubmed_id
-        #pubmed_id = df.loc['pubmed_id', 'value']
-        #if is_na(pubmed_id) is False:
-        #    is_pubmed_valid = mdv.validate_pubmed_id(pubmed_id)
-        #    if is_pubmed_valid is False:
-        #       is_valid = False
-        #        df.loc['pubmed_id', 'message'] = "Unable to confirm with URL search. Please ensure the value entered is correct. "
-
-        #check geo_id
-        #geo_id = df.loc['geo_accession', 'value']
-        #if is_na(geo_id) is False:
-        #    is_geo_valid = mdv.validate_geo_id(geo_id)
-        #    if is_geo_valid is False:
-        #        is_valid = False
-        #        df.loc['geo_accession', 'message'] = "Unable to confirm with URL search. Please ensure the value entered is correct. "
+        # clean any optional fields without value -  only for validation!
+            else:
+                if is_na(v['value']):
+                    df.loc[idx, 'value'] = np.nan
+        df.dropna(subset = ['value'], inplace=True)
 
         # check the taxon ID
-        #taxon_id = str(df.loc['taxon_id', 'value'])
         if 'sample_taxid' in df.index:
             taxon_id = str(df.loc['sample_taxid', 'value'])
         elif 'taxon_id' in df.index:
@@ -230,7 +213,17 @@ class Metadata:
         is_taxon_valid = mdv.validate_taxon_id(taxon_id)
         if is_taxon_valid is False:
             is_valid = False
-            df.loc['sample_taxid', 'message'] = "Taxon ID should be numeric (only). Please ensure the value entered is correct. "
+            msg = "Taxon ID should be numeric (only). Please ensure the value entered is correct. "
+            df.loc['sample_taxid', 'message'] = msg
+
+        # make sure annotation release number is numeric at validation step
+        if 'annotation_release_number' in df.index:
+            annotation_release_number = str(df.loc['annotation_release_number', 'value'])
+            is_release_valid = mdv.validate_release_number(annotation_release_number)
+            if is_release_valid is False:
+                is_valid = False
+                msg = "Anotation release number should be numeric (only). Please ensure the value entered is correct. "
+                df.loc['annotation_release_number', 'message'] = msg
 
         self.metadata = df
         return is_valid
@@ -337,11 +330,12 @@ class Metadata:
         contact_name = get_value_from_df(df, 'contact_name')
         annotation_source = get_value_from_df(df, 'annotation_source')
         annotation_release = get_value_from_df(df, 'annotation_release_number')
+        assembly = get_value_from_df(df, 'assembly')
         default_plot_type = get_value_from_df(df, 'default_plot_type')
 
         add_dataset_sql = """
-        INSERT INTO dataset (id, owner_id, title, organism_id, pubmed_id, geo_id, is_public, ldesc, date_added, dtype, schematic_image, share_id, math_default, load_status, has_h5ad, platform_id, instrument_model, library_selection, library_source, library_strategy, contact_email, contact_institute, contact_name, annotation_source, annotation_release, plot_default)
-        VALUES              (%s, %s,       %s,    %s,          %s,        %s,     %s,        %s,    NOW(),      %s,    %s,              %s,       %s,           %s,          %s,       %s,          %s,               %s,                %s,             %s,               %s,            %s,                %s,           %s,                %s,                 %s)
+        INSERT INTO dataset (id, owner_id, title, organism_id, pubmed_id, geo_id, is_public, ldesc, date_added, dtype, schematic_image, share_id, math_default, load_status, has_h5ad, platform_id, instrument_model, library_selection, library_source, library_strategy, contact_email, contact_institute, contact_name, annotation_source, annotation_release, assembly, plot_default)
+        VALUES              (%s, %s,       %s,    %s,          %s,        %s,     %s,        %s,    NOW(),      %s,    %s,              %s,       %s,           %s,          %s,       %s,          %s,               %s,                %s,             %s,               %s,            %s,                %s,           %s,                %s,                 %s, %s)
         """
 
         # Insert dataset info to database
@@ -350,7 +344,7 @@ class Metadata:
                                              geo_id, is_public, ldesc, dtype, schematic_image,
                                              share_uid, default_data_format, status, has_h5ad, platform_id,
                                              instrument_model, library_selection, library_source, library_strategy, contact_email,
-                                             contact_institute, contact_name, annotation_source, annotation_release, default_plot_type,))
+                                             contact_institute, contact_name, annotation_source, annotation_release, assembly, default_plot_type))
             cnx.commit()
         except mysql.connector.Error as err:
             raise Exception("Failed to insert metadata: {0}".format(err))

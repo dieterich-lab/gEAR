@@ -12,8 +12,8 @@ class MetadataValidator:
     """
     def __init__( self ):
         self.required_atts = [
-            'annotation_release_number',
-            'annotation_source',
+            #'annotation_release_number',
+            #'annotation_source',
             'contact_email',
             'contact_institute',
             'contact_name',
@@ -101,4 +101,16 @@ class MetadataValidator:
             if re.match(r"^\d+$", hold_txid):
                 is_valid = True
     
+        return is_valid
+    
+    
+    def validate_release_number(release_number=None):
+        """
+        Currently only checks that the annotation_release_number is numeric.
+        Only called if present.
+        """
+        is_valid = False
+        if re.match(r"^\d+$", release_number):
+            is_valid = True
+            
         return is_valid
