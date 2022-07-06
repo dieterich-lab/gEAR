@@ -7,12 +7,8 @@ or H5AD file.
 
 from shutil import copyfileobj
 import sys
-import cgi, html
-import json
+import cgi, html, json
 import os
-
-# from Python 3.8
-cgi.escape = html.escape
 
 lib_path = os.path.abspath(os.path.join('..', '..', 'lib'))
 sys.path.append(lib_path)
@@ -20,8 +16,8 @@ import geardb
 
 def main():
     form = cgi.FieldStorage()
-    dataset_id = cgi.escape(form.getvalue('dataset_id'))
-    dtype = cgi.escape(form.getvalue('type'))
+    dataset_id = html.escape(form.getvalue('dataset_id'))
+    dtype = html.escape(form.getvalue('type'))
     dataset = geardb.Dataset(id=dataset_id)
     tarball_path = dataset.get_tarball_path()
     h5ad_path = dataset.get_file_path()

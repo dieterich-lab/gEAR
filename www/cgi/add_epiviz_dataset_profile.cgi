@@ -13,8 +13,6 @@ import os, sys
 import re
 import shutil
 
-# from Python 3.8
-cgi.escape = html.escape
 
 lib_path = os.path.abspath(os.path.join('..', '..', 'lib'))
 sys.path.append(lib_path)
@@ -29,8 +27,8 @@ def main():
     result = {'success':0}
     form = cgi.FieldStorage()
     session_id = form.getvalue('session_id')
-    dataset_uid = cgi.escape(form.getvalue('dataset_uid'))
-    share_uid = cgi.escape(form.getvalue('share_uid'))
+    dataset_uid = html.escape(form.getvalue('dataset_uid'))
+    share_uid = html.escape(form.getvalue('share_uid'))
     dataset_name = form.getvalue('title')
     dataset_description = form.getvalue('description')
     dataset_config = form.getvalue("epiviz_config")
