@@ -18,7 +18,7 @@ def make_static_plotly_graph(dataset_id, filename, config):
     # Throw error if things went awry (check apache ssl_error logs)
     try:
         # WARNING: Disabling SSL verification in the POST call
-        result = requests.post("https://localhost/api/plot/{}".format(dataset_id), json=config, verify=False)
+        result = requests.post("http://localhost/api/plot/{}".format(dataset_id), json=config)
         result.raise_for_status()
     except Exception as e:
         print("Error with plotting dataset {}".format(dataset_id), file=sys.stderr)
