@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 For gEAR expression data files. Checks that the file extension matches the actual

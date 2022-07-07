@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 
 '''
 Scan ZFin id list and parse out ZDB-GENE ids and coorresponding external source ids

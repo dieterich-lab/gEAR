@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 This takes an input tab file and creates a three-tabbed Excel spreadsheet for import into gEAR.

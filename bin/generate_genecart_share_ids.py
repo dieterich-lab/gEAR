@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Generate share IDs for gene carts where they are currently NULL

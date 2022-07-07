@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 This takes an input tab file and creates a three-file MEX for import into gEAR.

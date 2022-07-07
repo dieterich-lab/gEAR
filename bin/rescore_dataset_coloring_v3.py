@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Rescore dataset coloring for all 3 scopes: dataset, gene, and tissue

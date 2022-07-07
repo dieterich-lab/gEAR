@@ -1,16 +1,19 @@
-#!/usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
-
-Load a subset of information from the GO ontology into the gEAR database.
+Load a subset of information from the GO ontology into the gEAR database
+using standard obo file format.
 
 """
 
 import argparse
 import mysql.connector
 import configparser
-import os
+import os, sys
 import re
+
+sys.path.append("{0}/../lib".format(os.path.dirname(sys.argv[0])))
+import geardb
 
 def main():
     parser = argparse.ArgumentParser( description='')
@@ -19,22 +22,8 @@ def main():
     parser.add_argument('-i', '--input_file', type=str, required=True, help='Path to an input file to be read' )
     args = parser.parse_args()
 
-    config = configparser.ConfigParser()
-    config.read('gear.ini')
-
-    try:
-        cnx = mysql.connector.connect(user=config['database']['user'], password=config['database']['password'],
-                                      host=config['database']['host'], database=config['database']['name'])
-
-    except mysql.connector.Error as err:
-        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-            print("Something is wrong with your user name or password")
-        elif err.errno == errorcode.ER_BAD_DB_ERROR:
-            print("Database does not exist")
-        else:
-            print(err)
-
-    cursor = cnx.cursor()
+    cnx = geardb.Connection()
+    cursor = cnx.get_cursor()
 
     current = dict()
 

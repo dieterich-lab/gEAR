@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Removes any dataset from gEAR database where dataset.marked_for_removal = 1

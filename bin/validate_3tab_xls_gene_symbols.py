@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Our supported 3-tab Excel sheet format has one tab called 'genes' which can have a variety of

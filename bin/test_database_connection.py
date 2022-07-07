@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Verifies that a database connection can be made and cursor obtained using the gear.ini file

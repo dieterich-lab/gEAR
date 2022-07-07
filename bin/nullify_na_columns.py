@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 If the input tab file has unconventional empty columns (such as the "NA" string)

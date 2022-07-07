@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Quick utility to give stats on a passed tab file.  These include:

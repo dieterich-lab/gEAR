@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Collects site statistics and outputs results as JSON file into www/stats_archive/

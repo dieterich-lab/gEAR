@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Collaborators requested support for custom colors for their tSNE clusters but

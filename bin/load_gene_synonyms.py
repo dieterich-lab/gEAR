@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 
@@ -25,6 +25,11 @@ import configparser
 import os
 import re
 import sys
+import gzip
+
+sys.path.append("{0}/../lib".format(os.path.dirname(sys.argv[0])))
+import geardb
+
 
 # this should match create_schema.sql column length for gene_symbol.label
 GENE_SYM_LENGTH_LIMIT = 30
@@ -37,25 +42,11 @@ def main():
 
     ## output file to be written
     parser.add_argument('-i', '--input_file', type=str, required=True, help='Path to an input file to be read' )
-    parser.add_argument('-org', '--organism_id', type=str, required=True, help='Organism ID for which these genes are intended' )
+    parser.add_argument('-id', '--organism_id', type=str, required=True, help='Organism ID for which these genes are intended' )
     args = parser.parse_args()
 
-    config = configparser.ConfigParser()
-    config.read('gear.ini')
-
-    try:
-        cnx = mysql.connector.connect(user=config['database']['user'], password=config['database']['password'],
-                                      host=config['database']['host'], database=config['database']['name'])
-
-    except mysql.connector.Error as err:
-        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-            print("Something is wrong with your user name or password")
-        elif err.errno == errorcode.ER_BAD_DB_ERROR:
-            print("Database does not exist")
-        else:
-            print(err)
-
-    cursor = cnx.cursor()
+    cnx = geardb.Connection()
+    cursor = cnx.get_cursor()
 
     ingenes = load_user_genes(args.input_file)
     dbgenes = get_primary_data(args.organism_id, cursor)
@@ -136,23 +127,30 @@ def get_primary_data(org_id, cursor):
     
 def load_user_genes(infile):
     # keyed on gene symbol, and each value is a list of aliases
+    
+    idx1 = 2
+    idx2 = 4
+    
     genes = dict()
 
-    for line in open(infile):
+    gfile = gzip.open(infile, 'rt')
+    next(gfile)
+    
+    for line in gfile:
         line = line.rstrip()
         cols = line.split()
 
-        primary = cols[0]
+        primary = cols[idx1]
         
         if primary in genes:
             print("Error: duplicate primary gene symbols in input file: {0}".format(primary), file=sys.stderr)
             continue
 
-        if cols[1] != '-' and cols[1] != '':
-            if '|' in cols[1]:
-                genes[primary] = cols[1].split('|')
+        if cols[idx2] != '-' and cols[idx2] != '':
+            if '|' in cols[idx2]:
+                genes[primary] = cols[idx2].split('|')
             else:
-                genes[primary] = [cols[1]]
+                genes[primary] = [cols[idx2]]
 
     return genes
 

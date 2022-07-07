@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 generate_static_layouts.py - Generate a static plot based on the dataset's layout configurations stored in database

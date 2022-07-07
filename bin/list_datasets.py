@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 This is used to list the datasets in gEAR.  It excludes any marked for removal.

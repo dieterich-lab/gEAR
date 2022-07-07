@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 Given an h5ad file with only gene symbols, find best matching ensembl release, then

@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python
 """
 Loads gene symbols from the old GCID "gene_symbols" table as new entries in the "gene" table on the new GCID server
 

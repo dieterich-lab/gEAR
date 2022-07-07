@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/envs/dhart/bin/python
 
 """
 ALTER TABLE gene ADD column molecule VARCHAR(100) after organism_id;
