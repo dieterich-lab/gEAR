@@ -71,8 +71,8 @@ def main():
 
             # Each of the file names across organisms so far has something like '.chromosome.X.' in
             #  the name.  Let's use this to get a molecule name
-            m = re.search("\.(chromosome|nonchromosomal)\.(\w+)", file)
-            if m.group(1) == "chromosome":
+            m = re.search("\.(chromosome|nonchromosomal|primary_assembly)\.(\w+)", file)
+            if m.group(1) == "chromosome" or m.group(1) == "primary_assembly":
                 chr_name = m.group(2)
             elif m.group(1) == "nonchromosomal":
                 chr_name = "nonchromosomal"

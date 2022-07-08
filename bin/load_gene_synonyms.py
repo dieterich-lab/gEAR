@@ -2,15 +2,7 @@
 
 """
 
-Loads gene synonyms for a given organism based on a passed datafile which looks like this:
-
-Aebp1   ACLP
-Aebp2   AU023766|B230313N05Rik
-Crisp1  AW324342|Aeg1|CRISP-1|SCP 1
-Crisp3  Aeg2|CRISP-3|CRS3|SGP28
-Afp     -
-
-A dash is provided when there are no aliases and these rows are skipped.
+Loads gene synonyms for a given organism based on gene aliases from ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO
 
 This script attempts to be intelligent and cache existing entries so no duplicates are
 loaded.  It should be re-run safe.
