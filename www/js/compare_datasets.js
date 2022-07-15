@@ -229,7 +229,8 @@ function load_comparison_graph() {
 		$("#fold_change_std_dev").html(data.fold_change_std_dev);
 		plot_data = data;
 		plot_data_to_graph(data);
-		} else {
+			return;
+		}
 		// Handle graphing failures
 		$("#plot_loading").hide();
 		$("#ticket_dataset_id").text(dataset_id);
@@ -238,7 +239,6 @@ function load_comparison_graph() {
 		$("#ticket_datasety_condition").text(condition_y_string);
 		$("#ticket_error_msg").html(data.error);
 		$("#error_loading_c").show();
-		}
 	},
 	error(jqXHR, textStatus, errorThrown) {
 		// Handle graphing failures
@@ -361,7 +361,7 @@ $(document).on('change', '.js-cat-check', function (e) {
 $(document).on('click', '.js-cat-collapse', function (e) {
 	// If category was clicked, then toggle collapsable element
 	// Controlling via JS instead of "data-target" since we may need to escape CSS selectors
-	const id = this.id;
+	const { id } = this;
 	const category = id.replace('_collapse', '');
 	const escapedCategory = $.escapeSelector(category);
 	const category_collaspable = $(`#${escapedCategory}_body`);
@@ -387,8 +387,7 @@ $(document).on('change', '.js-group-check', function(e) {
 	// If there is a combination of checked/unchecked the "each" loop breaks early
 	let all = true;
 	$(category_collaspable).find('input[type="checkbox"]').each(function(){
-		const return_value = all = ($(this).prop("checked") === checked);
-		return return_value;
+		return all = ($(this).prop("checked") === checked);
 	});
 
 	if (all) {
@@ -440,7 +439,7 @@ function stringify_all_conditions(condition) {
 	return sanitized_condition;
 }
 
-$(document).on("build_jstrees", () => populate_dataset_selection_controls);
+$(document).on("build_jstrees", () => populate_dataset_selection_controls());
 
 async function populate_dataset_selection_controls() {
 	const dataset_id = getUrlParameter("dataset_id");
@@ -589,6 +588,9 @@ function plot_data_to_graph(data) {
 		}
 		}
 
+		pass_color = CURRENT_USER.colorblind_mode ? 'rgb(0, 34, 78)' : "#FF0000";
+		fail_color = CURRENT_USER.colorblind_mode ? 'rgb(254, 232, 56)' : "#A1A1A1";
+
 		plotdata = $("input[name='stat_action']:checked").val() == "colorize" ? [
 		{
 			id: passing.id,
@@ -601,7 +603,7 @@ function plot_data_to_graph(data) {
 			type: "scatter",
 			text: passing.labels,
 			marker: {
-			color: "#FF0000",
+			color: pass_color,
 			size: 4,
 			},
 		},
@@ -616,7 +618,7 @@ function plot_data_to_graph(data) {
 			type: "scatter",
 			text: failing.labels,
 			marker: {
-			color: "#A1A1A1",
+			color: fail_color,
 			size: 4,
 			},
 		},
@@ -655,6 +657,8 @@ function plot_data_to_graph(data) {
 		modebar: {orientation: "v"}
 	};
 
+	annotation_color = CURRENT_USER.colorblind_mode ? 'rgb(125, 124, 118)' : "crimson";
+
 	// Take genes to search for and highlight their datapoint in the plot
 	const genes_not_found = [];
 	if ($('#highlighted_genes').val()) {
@@ -674,10 +678,10 @@ function plot_data_to_graph(data) {
 				y: plotdata[i].y[j],
 				text:plotdata[i].id[j],
 				font: {
-					color: "crimson",
+					color: annotation_color,
 				},
 				showarrow: true,
-				arrowcolor: "crimson",
+				arrowcolor: annotation_color,
 
 				});
 				found = true;

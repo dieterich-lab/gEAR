@@ -1,15 +1,13 @@
-import re
+import json
+import os
+
+import gear.mg_plotting as mg
+import geardb
+import pandas as pd
 from flask import request
 from flask_restful import Resource
-import pandas as pd
-import geardb
-
-import json, os
-from gear.mg_plotting import get_config, PlotError
-import gear.mg_plotting as mg
-
+from gear.mg_plotting import PlotError
 from plotly.utils import PlotlyJSONEncoder
-
 
 # SAdkins - 2/15/21 - This is a list of datasets already log10-transformed where if selected will use log10 as the default dropdown option
 # This is meant to be a short-term solution until more people specify their data is transformed via the metadata
@@ -161,7 +159,8 @@ class MultigeneDashData(Resource):
         # Misc options
         title = req.get('plot_title', None)
         legend_title = req.get('legend_title', None)
-        projection_csv = req.get('projection_csv', None)    # as CSV file
+        projection_id = req.get('projection_id', None)    # projection id of csv output
+        colorblind_mode = req.get('colorblind_mode', False)
         kwargs = req.get("custom_props", {})    # Dictionary of custom properties to use in plot
 
         try:
@@ -197,7 +196,8 @@ class MultigeneDashData(Resource):
         success = 1
         message = ""
 
-        if projection_csv:
+        if projection_id:
+            projection_csv = "{}.csv".format(projection_id)
             try:
                 adata = create_projection_adata(adata, projection_csv)
             except PlotError as pe:
@@ -303,7 +303,7 @@ class MultigeneDashData(Resource):
                     pass
 
             # Sort selected.obs based on reordered categorical columns
-            selected.obs = selected.obs.sort_values(by=sort_fields)
+            #selected.obs = selected.obs.sort_values(by=sort_fields)
 
         var_index = selected.var.index.name
 
@@ -331,7 +331,15 @@ class MultigeneDashData(Resource):
                 , [lower_logfc_threshold, upper_logfc_threshold]
                 , use_adj_pvals
                 )
-            mg.modify_volcano_plot(fig, query_val, ref_val)
+
+            downcolor = None
+            upcolor = None
+            # Use reversed "cividis" colorscheme
+            if colorblind_mode:
+                downcolor = "rgb(254, 232, 56)"
+                upcolor = "rgb(0, 34, 78)"
+
+            mg.modify_volcano_plot(fig, query_val, ref_val, downcolor, upcolor)
 
             if gene_symbols:
                 dataset_genes = df['gene_symbol'].unique().tolist()
@@ -362,7 +370,9 @@ class MultigeneDashData(Resource):
                     'message': str(pe),
                 }
 
-            fig = mg.create_quadrant_plot(df, control_val, compare1_val, compare2_val)
+            colorscale = "viridis" if colorblind_mode else None
+
+            fig = mg.create_quadrant_plot(df, control_val, compare1_val, compare2_val, colorscale)
             # Annotate selected genes
             if gene_symbols:
                 genes_not_found, genes_none_none = mg.add_gene_annotations_to_quadrant_plot(fig, normalized_genes_list)
@@ -399,7 +409,7 @@ class MultigeneDashData(Resource):
             # Add "gene_symbol" as a column, make it categorical to ensure the sort order is preserved when melted
             df["gene_symbol"] = df[var_index].map(ensm_to_gene).astype('category')
             df["gene_symbol"] = df["gene_symbol"].cat.reorder_categories(
-                        gene_symbols, ordered=True)
+                        normalized_genes_list, ordered=True)
             df = df.sort_values(by=["gene_symbol"])
 
             # Percent of all cells in this group where the gene has expression
@@ -411,6 +421,10 @@ class MultigeneDashData(Resource):
             df = grouped.agg(['mean', 'count', ('percent', percent)]) \
                 .fillna(0) \
                 .reset_index()
+
+            # Reverse Cividis so that dark is higher expression
+            if colorblind_mode:
+                colorscale = "cividis_r"
 
             fig = mg.create_dot_plot(df, groupby_filters, is_log10, title, colorscale, reverse_colorscale)
 
@@ -457,6 +471,10 @@ class MultigeneDashData(Resource):
             # They cannot be in there when the clustergram is made
             # But save it to add back in later
             df_cols = pd.concat([df.pop(cat) for cat in groupby_fields], axis=1)
+
+            # Reverse Cividis so that dark is higher expression
+            if colorblind_mode:
+                colorscale = "cividis_r"
 
             # "df" must be obs label for rows and genes for cols only
             fig = mg.create_clustergram(df
@@ -509,10 +527,14 @@ class MultigeneDashData(Resource):
             # Add "gene_symbol" as a column, make it categorical to ensure the sort order is preserved when melted
             df["gene_symbol"] = df[var_index].map(ensm_to_gene).astype('category')
             df["gene_symbol"] = df["gene_symbol"].cat.reorder_categories(
-                        gene_symbols, ordered=True)
+                        normalized_genes_list, ordered=True)
             df = df.sort_values(by=["gene_symbol"])
 
             violin_func = mg.create_stacked_violin_plot if stacked_violin else mg.create_violin_plot
+
+            # I think Viridis lends itself to quantitative plots than Cividis.
+            if colorblind_mode:
+                colorscale = "viridis"
 
             fig = violin_func(df
                 , groupby_filters
@@ -574,10 +596,6 @@ class MultigeneDashData(Resource):
         fig["layout"].pop("height", None)
         fig["layout"].pop("width", None)
 
-        fig["layout"]["dragmode"] = "select"
-        # Make Plotly controls flush with right of plot
-        fig["layout"]["modebar"] = {"orientation": "v"}
-
         plot_json = json.dumps(fig, cls=PlotlyJSONEncoder)
 
         # NOTE: With volcano plots, the Chrome "devtools" cannot load the JSON response occasionally
@@ -586,7 +604,6 @@ class MultigeneDashData(Resource):
             , "message": message
             , 'gene_symbols': gene_symbols
             , 'plot_json': json.loads(plot_json)
-            , "plot_config": get_config()
         }
 
 class PaletteData(Resource):
