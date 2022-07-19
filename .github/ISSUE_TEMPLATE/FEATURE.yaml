@@ -1,0 +1,31 @@
+name: Feature Request
+description: Suggest an idea for improving DHART
+title: "<title>"
+labels: [Enhancement, Needs Triage]
+assignees:
+  - eboileau
+body:
+  - type: checkboxes
+    attributes:
+      label: Is this related to an existing bug report/feature request?
+      description: Please answer the following questions before submitting a feature request.
+      options:
+      - label: Is this related to an existing issue?
+        required: true
+  - type: textarea
+    id: bug
+    attributes:
+      label: Is your suggestion related to a problem to be solved?
+      description: Provide a clear and concise description of what the problem is.
+      placeholder: Tell us what you see!
+      value: |
+        If this is related to existing issues/bugs, please link them here.
+    validations:
+      required: false
+  - type: textarea
+    id: output
+    attributes:
+      label: A concise description of your request.
+      description: Add technical details if relevant, caveats and considerations, etc.
+    validations:
+      required: true
