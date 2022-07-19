@@ -1,0 +1,57 @@
+name: Bug Report
+description: Create a bug/issue report to help us improve
+title: "<title>"
+labels: [Bug, Needs Triage]
+assignees:
+  - eboileau
+body:
+  - type: checkboxes
+    attributes:
+      label: Is there an existing issue for this?
+      description: Please answer the following questions before submitting a bug report.
+      options:
+      - label: I checked the documentation and found no answer
+        required: true
+      - label: This bug has not already been reported
+        required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: A clear and concise description of what the issue is.
+      description: Please give us a short description of what you're experiencing and what you expected to happen.
+      placeholder: Tell us what you see!
+      value: |
+        Describe the steps to reproduce the behavior:
+        1. step 1
+        2. step 2
+        3. you get it...
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output or error messages.
+      description: If relevant, paste error messages, log output, etc.
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Anything else?
+      description: |
+        Anything that will give us more context about the issue you are encountering!
+        Tip: You can attach images or log files by clicking this area to highlight it and then dragging files in.
+    validations:
+      required: false
+  - type: dropdown
+    id: browsers
+    attributes:
+      label: What browser were you using?
+      multiple: true
+      options:
+        - Firefox
+        - Chrome
+        - Safari
+        - Microsoft Edge
+        - Other
+    validations:
+      required: true
