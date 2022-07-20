@@ -21,6 +21,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 - `ValueError: DataFrame index must be unique for orient='index'`, `ValueError: cannot reindex from a duplicate axis:` in lib/gear/metadata.py (drop NaNs from metadata).
 - `AttributeError: module 'cgi' has no attribute 'escape'` in www/cgi (removed from Python 3.8, use html).
+- Reset email: rely on gear.ini w/o password, sending from localhost, removed hard coded (except styling/color).
 
 ### Removed
 - Organisms: chicken, marmoset.

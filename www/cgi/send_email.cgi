@@ -29,7 +29,7 @@ def main():
     config = configparser.ConfigParser()
     config.read('../../gear.ini')
     sender = config['email_sender']['address']
-    password = config['email_sender']['password']
+    password = config['email_sender']['password'] # unused - DHART 20.07.2022
 
     print('Content-Type: application/json\n\n')
     result = {'error': [], 'success': 0 }
@@ -51,11 +51,10 @@ def main():
             url = destination_page + '?help_id=' + user_help_id
 
             # https://docs.python.org/3/library/email-examples.html
-            gear = 'gearportal.igs@gmail.com'
             # user = email
             msg = MIMEMultipart('alternative')
             msg['Subject'] = 'Reset {} Password'.format(domain_short_label)
-            msg['From'] = gear
+            msg['From'] = sender
             msg['To'] = email
 
             text = "You requested to change your {} password. Please click the link to continue:  {}".format(domain_short_label, url)
@@ -63,7 +62,7 @@ def main():
             <html>
             <head></head>
             <body style="font-family:Helvetica Neue,Helvetica,Arial,sans-serif;">
-            <div style="height:50px; background-color:#2F103E;">
+            <div style="height:50px; background-color:#782121;">
                <a href="{}">
                  <img src="{}" style="border-radius:4px; margin-left:90px;">
               </a>
@@ -87,12 +86,12 @@ def main():
             msg.attach(part2)
 
             # http://stackoverflow.com/a/17596848/2900840
-            s = smtplib.SMTP('smtp.gmail.com:587')
+            s = smtplib.SMTP('localhost')
             s.ehlo()
-            s.starttls()
-            s.login(sender, password)
+            # s.starttls()
+            # s.login(sender, password)
 
-            s.sendmail( gear, email, msg.as_string() )
+            s.sendmail( sender, email, msg.as_string() )
             s.quit()
 
             result['success'] = 1
