@@ -370,7 +370,7 @@ CREATE TABLE note (
   dataset_id          VARCHAR(50),
   is_public           TINYINT DEFAULT 0,
   date_added          DATETIME,
-  date_last_change    DATETIME,
+  date_last_changed   DATETIME,
   FOREIGN KEY (user_id)
      REFERENCES guser(id),
   FOREIGN KEY (dataset_id)
