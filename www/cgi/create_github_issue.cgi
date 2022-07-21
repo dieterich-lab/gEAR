@@ -6,6 +6,8 @@ Creates a Github issue from a submitted comment on the gEAR page.
 """
 
 import cgi, json, os, requests, socket, sys
+import configparser
+
 from dotenv import load_dotenv
 from requests.exceptions import HTTPError
 from pathlib import Path
@@ -14,20 +16,27 @@ from uuid import uuid4
 env_path = Path('..') / '.env'  # .env file is in "www" directory
 load_dotenv(dotenv_path=env_path)
 
-
 GITHUB_ACCESS_TOKEN=os.getenv("GITHUB_ACCESS_TOKEN")
-GEAR_GIT_URL="https://api.github.com/repos/jorvis/gEAR/issues"
-ASSIGNEES=["songeric1107"]
-
-SITE_COMMENTS_PROJ_URL="https://api.github.com/projects/columns/8150789/cards" # Corresponds to jorvis/gEAR
-
 SCREENSHOT_DIR = "contact_screenshots"
-SCREENSHOT_URL = 'https://umgear.org/{}'.format(SCREENSHOT_DIR)
+
+graphqlurl = 'https://api.github.com/graphql'
 
 def main():
 
     print('Content-Type: application/json\n\n')
     result = {'error': [], 'success': 0 }
+    
+    config = configparser.ConfigParser()
+    config.read('../../gear.ini')
+    
+    REPO_OWNER =  config['contact_form']['repo_owner']
+    PUBLIC_REPO_NAME =  config['contact_form']['public_repo']
+    PRIVATE_REPO_NAME =  config['contact_form']['private_repo']
+    PUBLIC_PRJ =  config['contact_form']['public_project']
+    PRIVATE_PRJ =  config['contact_form']['private_project']
+    SITE_DOMAIN_URL = config['contact_form']['domain_url']
+    SCREENSHOT_URL = '{}/{}'.format(SITE_DOMAIN_URL,SCREENSHOT_DIR)
+    ASSIGNEE = config['contact_form']['assignee']
 
     form = cgi.FieldStorage()
     firstname = form.getvalue('submitter_firstname')
@@ -58,11 +67,11 @@ def main():
 
     # In an effort to not blow up the "tags" field in github, I will just indicate the tags in the body of the Github issue
     body = (f"**From:** {firstname} {lastname}\n\n"
-           f"**Email:** {email}\n\n"
-           f"**Server IP:** {ip_address}\n\n"
-           f"**Msg:** {comment}\n\n"
-           f"**Tags:** {tag.split(', ')}\n\n"
-           f"**Screenshot:** {screenshot_url}")
+            f"**Email:** {email}\n\n"
+            f"**Server IP:** {ip_address}\n\n"
+            f"**Msg:** {comment}\n\n"
+            f"**Tags:** {tag.split(', ')}\n\n"
+            f"**Screenshot:** {screenshot_url}")
 
     # Headers data (i.e. authentication)
     headers = { "Authorization": "token {}".format(GITHUB_ACCESS_TOKEN) }
@@ -72,16 +81,16 @@ def main():
         "title":title,
         "body":body,
         "labels":["site_comment"],
-        "assignees":ASSIGNEES
+        "assignee":ASSIGNEE
     }
 
     # If user clicked "private" checkbox, send to private git repo
-    git_url = GEAR_GIT_URL
-    site_comments_url = SITE_COMMENTS_PROJ_URL
+    git_url = f'https://api.github.com/repos/{REPO_OWNER}/{PRIVATE_REPO_NAME}/issues'
+    site_comments_id = PRIVATE_PRJ
     if private == "false":
         # "false" is javascript string "false"
-        git_url = GEAR_GIT_URL.replace("jorvis", "IGS")
-        site_comments_url = SITE_COMMENTS_PROJ_URL.replace("8150789", "15595055")
+        git_url = f'https://api.github.com/repos/{REPO_OWNER}/{PUBLIC_REPO_NAME}/issues'
+        site_comments_id = PUBLIC_PRJ
 
     # Code from https://realpython.com/python-requests/
     try:
@@ -100,15 +109,13 @@ def main():
     if result["success"] == 0:
         sys.exit(0)
 
-    # Add to 'Site comments' projects board
-    headers["Accept"] = 'application/vnd.github.v3+json'
-    content_id = response.json()["id"]   # ID of ticket just created
-    data = {
-        "content_id": content_id,
-        "content_type": "Issue"
-    }
+    # Add to 'site comments' projects board
+    # beta project now use the GraphQL API
+    # so far I the issue has no status, we can sort this on the project board
+    content_id = response.json()["node_id"]  # id of ticket just created (node id)
+    query = f'mutation {{addProjectV2ItemById(input: {{projectId: \\"{site_comments_id}\\" contentId: \\"{content_id}\\"}}) {{item{{ id }}}}}}'
     try:
-        response = requests.post(site_comments_url, data = json.dumps(data), headers = headers )
+        response = requests.post(graphqlurl, data = '{"query": '+'\"' + query + '\"}', headers = headers)
         # If the response was successful (200- and 300- level status codes), no Exception will be raised
         response.raise_for_status()
     except HTTPError as http_err:
