@@ -57,8 +57,9 @@ def main():
             cols_obs, rows_obs = dataset_uploader.adata.obs.shape
             cols_var, rows_var = dataset_uploader.adata.var.shape
 
-            dataset_uploader.adata.write(h5_out_path)
-
+            #dataset_uploader.adata.write(h5_out_path)
+            dataset_uploader._write_to_h5ad(h5_out_path)
+            
             result['success'] = 1
             result['message'] = 'File successfully read.'
 

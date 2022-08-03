@@ -10,6 +10,7 @@ import geardb
 from gear.fromgeo import FromGeo
 from gear.metadatavalidator import MetadataValidator as mdv
 
+from pathlib import Path
 
 def is_na(value):
     """
@@ -428,7 +429,7 @@ class Metadata:
         return msg
 
 
-    def write_json(self, file_path=None):
+    def write_json(self, file_path=None, rm_file=False):
         """
         Writes the metadata fields and corresponding values to JSON.
 
@@ -454,6 +455,10 @@ class Metadata:
                 if col != 'value':
                     self.metadata = self.metadata.drop(col, axis=1)
 
-            # Write metadata to json file
+            # Write metadata to json file and remove original file (json or xlsx)
             self.metadata.to_json(path_or_buf=file_path, orient='index')
+            if rm_file:
+                p = Path(self.file_path)
+                p.unlink()
+                
             return self

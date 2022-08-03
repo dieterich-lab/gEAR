@@ -17,12 +17,15 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - CGI scripts (adjust shebang, see install notes).
 - MariaDB-related ini/setup files (create_schema.sql).
 - Organisms list (index.html).
+- Use `_write_to_h5ad` function of uploader class to write AnnData object (see #8).
+- Remove original metadata file (see #8)
 
 ### Fixed
 - `ValueError: DataFrame index must be unique for orient='index'`, `ValueError: cannot reindex from a duplicate axis:` in lib/gear/metadata.py (drop NaNs from metadata).
 - `AttributeError: module 'cgi' has no attribute 'escape'` in www/cgi (removed from Python 3.8, use html).
 - Reset email: rely on gear.ini w/o password, sending from localhost, removed hard coded (except styling/color).
 - 'create_github_issue.cgi`: remove hard coded (added to gear.ini), fix post request using GraphQL API (projects beta).
+- Redundant H5AD files (see #8).
 
 ### Removed
 - Organisms: chicken, marmoset.

@@ -66,7 +66,9 @@ class H5adUploader(FileType):
         if filepath is None:
             raise Exception("No destination file path given. Provide one to write file.")
         try:
-            self.adata.write(filename=filepath)
+            # instead of writing redundantly the h5ad file, we just rename it
+            p = Path(self.originalFile)
+            p.rename(Path(filepath))
         except Exception as err:
             raise Exception("Error occurred while writing to file: ", err)
         return self

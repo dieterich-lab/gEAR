@@ -75,25 +75,20 @@ def main():
         # Write H5AD file
         shutil.move(expression_source_path, expression_dest_path)
 
-        # Write metadata to JSON
-        metadata.write_json(file_path=metadata_dest_path)
+        # Write metadata to JSON and remove original file
+        metadata.write_json(file_path=metadata_dest_path, rm_file=True)
 
         source_user_file = user_upload_file_base + '/' + expression_filename
         
-        if expression_filename.endswith('.xlsx'):
-            dest_user_file = user_upload_dest_base + '/' + dataset_uid + '.xlsx'
+        if not expression_filename.endswith('.h5ad'):
+            if expression_filename.endswith('.xlsx'):
+                dest_user_file = user_upload_dest_base + '/' + dataset_uid + '.xlsx'
+            elif expression_filename.endswith('.tar'):
+                dest_user_file = user_upload_dest_base + '/' + dataset_uid + '.tar'
+            elif expression_filename.endswith('.gz'):
+                # Can't search for .tar.gz because many duplicate upload steps create files like: GSE11347.tar (13).gz
+                dest_user_file = user_upload_dest_base + '/' + dataset_uid + '.tar.gz'
             shutil.move(source_user_file, dest_user_file)
-        elif expression_filename.endswith('.tar'):
-            dest_user_file = user_upload_dest_base + '/' + dataset_uid + '.tar'
-            shutil.move(source_user_file, dest_user_file)
-        elif expression_filename.endswith('.gz'):
-            # Can't search for .tar.gz because many duplicate upload steps create files like: GSE11347.tar (13).gz
-            dest_user_file = user_upload_dest_base + '/' + dataset_uid + '.tar.gz'
-            shutil.move(source_user_file, dest_user_file)
-        elif expression_filename.endswith('.h5ad'):
-            pass # need to fix this (and data download)
-
-        #shutil.move(source_user_file, dest_user_file)
 
         # Write metadata to gEAR MySQL. Set load_status = 'completed'
         metadata.save_to_mysql(status='completed')
