@@ -6,6 +6,7 @@ or H5AD file.
 '''
 
 from shutil import copyfileobj
+import configparser
 import sys
 import cgi, html, json
 import os
@@ -31,7 +32,7 @@ def main():
         with open(tarball_path, 'rb') as binfile:
             copyfileobj(binfile, sys.stdout.buffer)
 
-    elif dtype == 'h5ad' and os.path.isfile(tarball_path):
+    elif dtype == 'h5ad' and os.path.isfile(h5ad_path):
         print("Content-type: application/octet-stream")
         print("Content-Disposition: attachment; filename={0}.h5ad".format(dataset_id))
         print()
@@ -41,6 +42,10 @@ def main():
             copyfileobj(binfile, sys.stdout.buffer)
 
     else:
+        config = configparser.ConfigParser()
+        config.read('../../gear.ini')
+        SITE_DOMAIN_URL = config['contact_form']['domain_url']
+        
         result_error = "Dataset tarball could not be found. Unable to download data file."
 
         print("Content-type: text/html")
@@ -49,14 +54,14 @@ def main():
         <!DOCTYPE html>
         <html>
           <head>
-            <meta http-equiv='refresh' content='5;url=http://gear.igs.umaryland.edu/'>
+            <meta http-equiv='refresh' content='5;url={1}/'>
           </head>
           <body>
             <p>Error: {0}</p>
             <p>Redirecting... <a href='{1}'>Click here if you are not redirected</a>
           </body>
         </html>
-        """.format(result_error, 'http://gear.igs.umaryland.edu'))
+        """.format(result_error, SITE_DOMAIN_URL))
 
 if __name__ == '__main__':
     main()
