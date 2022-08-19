@@ -15,7 +15,7 @@ CREATE TABLE guser (
 
 # password is a hashlib md5 hexdigest
 INSERT INTO guser (id, user_name, email, institution, pass, updates_wanted, is_admin, is_gear_curator)
-       VALUES (0, 'admin', 'admin@localhost', 'Heidelberg University Hospital', '9dd1661d830f0a047ea6c8cf3954701f', 0, 1, 1);
+       VALUES (0, 'admina', 'admin@localhost', 'Helmholtz München ICB', '22570ece0f9adf37e4c3c05947750d08', 0, 1, 1);
 
 # Group is a reserved word, so we get gEAR Group (ggroup)
 CREATE TABLE ggroup (
