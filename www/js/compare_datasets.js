@@ -219,7 +219,7 @@ function load_comparison_graph() {
 		condition_x: condition_x_string,
 		condition_y: condition_y_string,
 		fold_change_cutoff: $("#fold_change_cutoff").val(),
-		std_dev_num_cutoff: $("#std_dev_num_cutoff").val(),
+// 		std_dev_num_cutoff: $("#std_dev_num_cutoff").val(),
 		log_transformation: $("#log_base").val(),
 		statistical_test: $("#statistical_test").val(),
 	},

@@ -27,12 +27,21 @@ def main():
     dataset_id = form.getvalue('dataset_id')
     condition1 = form.getvalue('condition_x')
     condition2 = form.getvalue('condition_y')
-    std_dev_num_cutoff = form.getvalue('std_dev_num_cutoff')
-    std_dev_num_cutoff = float(std_dev_num_cutoff) if std_dev_num_cutoff else None
+    #std_dev_num_cutoff = form.getvalue('std_dev_num_cutoff')
+    #std_dev_num_cutoff = float(std_dev_num_cutoff) if std_dev_num_cutoff else None
     fold_change_cutoff = form.getvalue('fold_change_cutoff')
     fold_change_cutoff = float(fold_change_cutoff) if fold_change_cutoff else None
     log_transformation = form.getvalue('log_transformation')
+    if log_transformation == 'False':
+        log_transformation = False
+    elif log_transformation == 'None':
+        log_transformation = None
+    else: 
+        log_transformation = int(log_transformation)
     statistical_test = form.getvalue('statistical_test')
+
+    #msg = f"{fold_change_cutoff}, {log_transformation}, {type(log_transformation)}, {statistical_test}"
+    #return_error_response(msg)
 
     dataset = Dataset(id=dataset_id, has_h5ad=1)
     h5_path = dataset.get_file_path()
@@ -83,29 +92,54 @@ def main():
         msg = "The Y-axis condition selected combination does not exist for this dataset"
         return_error_response(msg)
 
+    # rank_genes_groups expects logarithmized data
+    if not log_transformation is False:
+        sc.pp.log1p(adata, base=log_transformation)
+
     # add the composite column for ranked grouping
-    if perform_ranking == True:
-        sc.pp.filter_cells(adata, min_genes=10)
-        sc.pp.filter_genes(adata, min_cells=1)
+    
+    # call rank_genes_groups - the whole script should be re-written anyway...
+    # use log2 fold changes calculated by rank_genes_groups
+    # also an approximation calculated from mean-log values.
+    
+    #if perform_ranking == True:
+    
+    # this is arbitrary... could have been set as an option?
+    sc.pp.filter_cells(adata, min_genes=3)
+    sc.pp.filter_genes(adata, min_cells=1)
 
-        # Scanpy.rank_genes_groups can handle multiple groups, but our output is designed for just one gropu
-        if len(cond1_composite_idx) > 1:
-            msg = "Detected multiple possible conditions for the X-axis condition (the query condition)." + \
-                "In order to perform a significance test, please ensure that your set conditions are such so that only 1 possible combination of conditions can be used as the query condition." + \
-                "<br />Curated set conditions: {}".format(cond1_composite_idx)
-            return_error_response(msg)
+    # Scanpy.rank_genes_groups can handle multiple groups, but our output is designed for just one gropu
+    if len(cond1_composite_idx) > 1:
+        msg = "Detected multiple possible conditions for the X-axis condition (the query condition)." + \
+            "In order to perform a significance test, please ensure that your set conditions are such so that only 1 possible combination of conditions can be used as the query condition." + \
+            "<br />Curated set conditions: {}".format(cond1_composite_idx)
+        return_error_response(msg)
 
-        if len(cond2_composite_idx) > 1:
-            msg = "Detected multiple possible conditions for the Y-axis condition (the reference condition)." + \
-                "In order to perform a significance test, please ensure that your set conditions are such so that only 1 possible combination of conditions can be used as the reference condition." + \
-                "<br />Curated set conditions: {}".format(cond2_composite_idx)
-            return_error_response(msg)
+    if len(cond2_composite_idx) > 1:
+        msg = "Detected multiple possible conditions for the Y-axis condition (the reference condition)." + \
+            "In order to perform a significance test, please ensure that your set conditions are such so that only 1 possible combination of conditions can be used as the reference condition." + \
+            "<br />Curated set conditions: {}".format(cond2_composite_idx)
+        return_error_response(msg)
 
-        try:
-            sc.tl.rank_genes_groups(adata, 'comparison_composite_index', groups=cond1_composite_idx, reference=cond2_composite_idx[0], n_genes=0, rankby_abs=False, copy=False, method=statistical_test, corr_method='benjamini-hochberg', log_transformed=False)
-        except Exception as e:
-            msg = "scanpy.rank_genes_groups failed.\n{}".format(str(e))
-            return_error_response(msg)
+    try:
+        # log_transformed=False is ignored
+        sc.tl.rank_genes_groups(adata, 
+                                'comparison_composite_index', 
+                                groups=cond1_composite_idx, 
+                                reference=cond2_composite_idx[0], 
+                                n_genes=0, 
+                                rankby_abs=False, # rank genes by the absolute value of the score, not by the score. Default = False
+                                copy=False, 
+                                use_raw=False, # make sure to use X in case raw is present
+                                method=statistical_test, 
+                                corr_method='benjamini-hochberg')
+    except Exception as e:
+        msg = "scanpy.rank_genes_groups failed.\n{}".format(str(e))
+        return_error_response(msg)
+
+    # set the ordering to that of adata and use dataframe to simplify
+    ranked = sc.get.rank_genes_groups_df(adata, group=None).set_index("names", drop=True) 
+    ranked = ranked.reindex(index=adata.var.index)
 
     # Set the index as the composite column so we can more easily match the dataset condition being searched.
     # Our condition has the convention of <column_name>;<column_name>;...
@@ -125,7 +159,9 @@ def main():
     condition_y_repls_filter = adata.obs.index.isin(cond2_composite_idx)
     adata_x_subset = adata[condition_x_repls_filter, :]
     adata_y_subset = adata[condition_y_repls_filter, :]
-
+    
+    # now mean-log values
+    
     df_x = pd.DataFrame({
         # adata.X ends up being 2 dimensional array with gene's values going down a column.
         # We tranpose so a gene's replicate values are in a list and then we take the average
@@ -133,9 +169,13 @@ def main():
         'e2_raw': [float(replicate_values.mean()) for replicate_values in adata_y_subset.X.transpose()],
         'gene_sym': adata_x_subset.var.gene_symbol
     })
-
+    
+    # add log2 fold changes from scanpy
+    df_x['log2_fc'] = ranked['logfoldchanges'].values
+    
     if perform_ranking:
-        df_x['pvals_adj'] = adata.uns['rank_genes_groups']['pvals_adj']
+        #df_x['pvals_adj'] = adata.uns['rank_genes_groups']['pvals_adj']
+        df_x['pvals_adj'] = ranked['pvals_adj'].values
 
     result = {
                'fold_change_std_dev': None,
@@ -152,7 +192,8 @@ def main():
     # There's too much data to show it all, else plotting fails.  So let's filter
     #  and skip those whose differences fall within N standard deviations of the mean.
     for index, row in df_x.iterrows():
-        result['fold_changes'].append(fold_change(row['e1_raw'], row['e2_raw']))
+        #result['fold_changes'].append(fold_change(row['e1_raw'], row['e2_raw']))
+        result['fold_changes'].append(row['log2_fc'])
         result['values'].append([row['e1_raw'], row['e2_raw']])
         result['x'].append(row['e1_raw'])
         result['y'].append(row['e2_raw'])
@@ -172,50 +213,52 @@ def main():
     filtered_symbols = list()
     filtered_fold_changes = list()
 
-    if std_dev_num_cutoff > 0:
-        cutoff_diff = fold_change_std_dev * std_dev_num_cutoff
-        idx = 0
+    #if std_dev_num_cutoff > 0:
+        #cutoff_diff = fold_change_std_dev * std_dev_num_cutoff
+        #idx = 0
 
-        for (e1_raw, e2_raw) in result['values']:
-            if fold_change(e1_raw, e2_raw) > cutoff_diff:
-                filtered_values.append([e1_raw, e2_raw])
-                filtered_x.append(e1_raw)
-                filtered_y.append(e2_raw)
-                filtered_gene_ids.append(result['gene_ids'][idx])
-                filtered_symbols.append(result['symbols'][idx])
-                filtered_fold_changes.append(fold_change(e1_raw, e2_raw))
+        #for (e1_raw, e2_raw) in result['values']:
+            #if fold_change(e1_raw, e2_raw) > cutoff_diff:
+                #filtered_values.append([e1_raw, e2_raw])
+                #filtered_x.append(e1_raw)
+                #filtered_y.append(e2_raw)
+                #filtered_gene_ids.append(result['gene_ids'][idx])
+                #filtered_symbols.append(result['symbols'][idx])
+                #filtered_fold_changes.append(fold_change(e1_raw, e2_raw))
 
-                if perform_ranking:
-                    filtered_pvals_adj.append(result['pvals_adj'][idx])
+                #if perform_ranking:
+                    #filtered_pvals_adj.append(result['pvals_adj'][idx])
 
-            idx += 1
+            #idx += 1
 
-        result['values'] = filtered_values
-        result['pvals_adj'] = filtered_pvals_adj
-        result['gene_ids'] = filtered_gene_ids
-        result['symbols'] = filtered_symbols
-        result['x'] = filtered_x
-        result['y'] = filtered_y
-        result['fold_changes'] = filtered_fold_changes
-        filtered_values = list()
-        filtered_pvals_adj = list()
-        filtered_x = list()
-        filtered_y = list()
-        filtered_gene_ids = list()
-        filtered_symbols = list()
-        filtered_fold_changes = list()
-
+        #result['values'] = filtered_values
+        #result['pvals_adj'] = filtered_pvals_adj
+        #result['gene_ids'] = filtered_gene_ids
+        #result['symbols'] = filtered_symbols
+        #result['x'] = filtered_x
+        #result['y'] = filtered_y
+        #result['fold_changes'] = filtered_fold_changes
+        #filtered_values = list()
+        #filtered_pvals_adj = list()
+        #filtered_x = list()
+        #filtered_y = list()
+        #filtered_gene_ids = list()
+        #filtered_symbols = list()
+        #filtered_fold_changes = list()
+    
     if fold_change_cutoff > 0:
         idx = 0
 
         for (e1_raw, e2_raw) in result['values']:
-            if fold_change(e1_raw, e2_raw) >= fold_change_cutoff:
+            #if fold_change(e1_raw, e2_raw) >= fold_change_cutoff:
+            if abs(result['fold_changes'][idx]) >= fold_change_cutoff:
                 filtered_values.append([e1_raw, e2_raw])
                 filtered_x.append(e1_raw)
                 filtered_y.append(e2_raw)
                 filtered_gene_ids.append(result['gene_ids'][idx])
                 filtered_symbols.append(result['symbols'][idx])
-                filtered_fold_changes.append(fold_change(e1_raw, e2_raw))
+                #filtered_fold_changes.append(fold_change(e1_raw, e2_raw))
+                filtered_fold_changes.append(result['fold_changes'][idx])
 
                 if perform_ranking:
                     filtered_pvals_adj.append(result['pvals_adj'][idx])
@@ -229,38 +272,38 @@ def main():
         result['gene_ids'] = filtered_gene_ids
         result['symbols'] = filtered_symbols
         result['fold_changes'] = filtered_fold_changes
-        filtered_values = list()
-        filtered_x = list()
-        filtered_y = list()
+        #filtered_values = list()
+        #filtered_x = list()
+        #filtered_y = list()
 
-    # Is there a transformation to apply?
-    if log_transformation == "2":
-        for (e1_raw, e2_raw) in result['values']:
-            transformed_e1 = get_log2(e1_raw)
-            transformed_e2 = get_log2(e2_raw)
+    ## Is there a transformation to apply?
+    #if log_transformation == "2":
+        #for (e1_raw, e2_raw) in result['values']:
+            #transformed_e1 = get_log2(e1_raw)
+            #transformed_e2 = get_log2(e2_raw)
 
-            if transformed_e1 is not None and transformed_e2 is not None:
-                filtered_x.append(transformed_e1)
-                filtered_y.append(transformed_e2)
-                filtered_values.append([transformed_e1,transformed_e2])
+            #if transformed_e1 is not None and transformed_e2 is not None:
+                #filtered_x.append(transformed_e1)
+                #filtered_y.append(transformed_e2)
+                #filtered_values.append([transformed_e1,transformed_e2])
 
-        result['values'] = filtered_values
-        result['x'] = filtered_x
-        result['y'] = filtered_y
+        #result['values'] = filtered_values
+        #result['x'] = filtered_x
+        #result['y'] = filtered_y
 
-    elif log_transformation == "10":
-        for (e1_raw, e2_raw) in result['values']:
-            transformed_e1 = get_log10(e1_raw)
-            transformed_e2 = get_log10(e2_raw)
+    #elif log_transformation == "10":
+        #for (e1_raw, e2_raw) in result['values']:
+            #transformed_e1 = get_log10(e1_raw)
+            #transformed_e2 = get_log10(e2_raw)
 
-            if transformed_e1 is not None and transformed_e2 is not None:
-                filtered_x.append(transformed_e1)
-                filtered_y.append(transformed_e2)
-                filtered_values.append([transformed_e1,transformed_e2])
+            #if transformed_e1 is not None and transformed_e2 is not None:
+                #filtered_x.append(transformed_e1)
+                #filtered_y.append(transformed_e2)
+                #filtered_values.append([transformed_e1,transformed_e2])
 
-        result['values'] = filtered_values
-        result['x'] = filtered_x
-        result['y'] = filtered_y
+        #result['values'] = filtered_values
+        #result['x'] = filtered_x
+        #result['y'] = filtered_y
 
     result['fold_change_std_dev'] = "{0:.2f}".format(fold_change_std_dev)
     result['condition_x_idx'] = cond1_composite_idx

@@ -103,23 +103,24 @@
               <div class="form-group-sm">
                 <label for="log_base" class="control-label mb-0 mt-2">Apply log transformation</label>
                 <select id="log_base" class="form-control form-control-sm">
-                  <option value="raw">None - Raw values</option>
+                  <option value="False">None (data is logarithmized)</option>
                   <option value="2" selected="selected">Log2</option>
                   <option value="10">Log10</option>
+                  <option value="None">Natural</option>
                 </select>
               </div>
               <div class="form-group-sm">
-                <label for="fold_change_cutoff" class="control-label mb-0 mt-2">Adjust fold change cutoff (>= N)</label>
-                <input id="fold_change_cutoff" class="form-control form-control-sm" value="2.0"/>
+                <label for="fold_change_cutoff" class="control-label mb-0 mt-2">Log2 fold change cutoff (>= N)</label>
+                <input id="fold_change_cutoff" class="form-control form-control-sm" value="1.0"/>
               </div>
-              <div class="form-group-sm">
+              <!--<div class="form-group-sm">
                 <label for="std_dev_num_cutoff" class="control-label mb-0 mt-2">Adjust standard deviation</label>
                 <select id="std_dev_num_cutoff" class="form-control form-control-sm">
                   <option value="0" selected="selected">No filter</option>
                   <option value="1">1 standard deviation</option>
                   <option value="2">2 standard deviations</option>
                 </select>
-              </div>
+              </div>-->
             </form>
             <h3>Significance test</h3>
             <form>
@@ -262,8 +263,8 @@
                 <thead>
                   <tr>
                     <th onclick="sortTable(0);">Gene <i class="fa fa-sort" aria-hidden="true"></i></th>
-                    <th onclick="sortTable(1);">FoldChg <i class="fa fa-sort" aria-hidden="true"></i></th>
-                    <th onclick="sortTable(2);">Pval <i class="fa fa-sort" aria-hidden="true"></i></th>
+                    <th onclick="sortTable(1);">Log2FC <i class="fa fa-sort" aria-hidden="true"></i></th>
+                    <th onclick="sortTable(2);">AdjPval <i class="fa fa-sort" aria-hidden="true"></i></th>
                   </tr>
                 <thead>
                   <tbody id='selected_genes_c'></tbody>
