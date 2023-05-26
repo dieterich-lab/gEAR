@@ -79,6 +79,10 @@ def main():
     if not os.path.exists(dest_datafile_dir):
         os.makedirs(dest_datafile_dir)
 
+    # temporary workaround, see https://github.com/scverse/scanpy/issues/2181 and related
+    if 'base' not in adata.uns['log1p']:
+        adata.uns['log1p']["base"] = None
+
     # Previous steps have copied adata to raw, but if we got here via primary
     #  This probably hasn't happened.  Do it now.
     if not adata.raw:

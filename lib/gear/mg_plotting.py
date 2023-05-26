@@ -529,8 +529,8 @@ def prep_quadrant_dataframe(adata, key, control_val, compare1_val, compare2_val,
     de_selected2 = selected3.concatenate(selected2)
 
     if not is_log10:
-        de_selected1.X = de_selected1.X + LOG_COUNT_ADJUSTER
-        de_selected2.X = de_selected2.X + LOG_COUNT_ADJUSTER
+        de_selected1.X.data = de_selected1.X.data + LOG_COUNT_ADJUSTER
+        de_selected2.X.data = de_selected2.X.data + LOG_COUNT_ADJUSTER
 
     # Use diffxpy to compute DE statistics for each comparison
     de_test_func = de.test.t_test
@@ -979,7 +979,7 @@ def prep_volcano_dataframe(adata, key, query_val, ref_val, de_test_algo="ttest",
     de_selected = selected2.concatenate(selected1)
 
     if not is_log10:
-        de_selected.X = de_selected.X + LOG_COUNT_ADJUSTER
+        de_selected.X.data = de_selected.X.data + LOG_COUNT_ADJUSTER
 
     # Wanted to use de.test.two_sample(test=<>) but you cannot pass is_logged=True
     # which makes the ensuing plot inaccurate

@@ -71,8 +71,8 @@ def main():
     adata.raw = adata
 
     # This next command hits a memory issue if not backed.  But the previous commands fail for various reasons if backed.  So back up now
-    adata.filename = dest_datafile_path + ".backed.h5ad"
-    #print(adata.isbacked)
+    # adata.filename = dest_datafile_path + ".backed.h5ad"
+    # print(adata.isbacked)
 
     if n_top_genes:
         sc.pp.highly_variable_genes(

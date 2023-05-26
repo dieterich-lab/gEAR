@@ -19,3 +19,13 @@ www/datasets_epigenetic/uploads/files/*
 
 # local directory
 /local/
+
+
+__pycache__
+www/.bash_history
+www/.cache/
+www/.python_history
+www/.vim/
+www/.viminfo
+www/contact_screenshots/*.jpg
+*.debug

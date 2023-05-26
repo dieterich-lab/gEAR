@@ -55,8 +55,12 @@ def main():
     # Recent upgrade of scanpy/anndata/pandas modules have issues where the sc.pl.rank_genes_groups_violin function
     # fails as pandas throws an error saying the data is not 1-dimensional.  This only happens if the AnnData object is a dense matrix
     # My workaround is to force it to be sparse.
-    adata = ana.get_adata(force_sparse=True)
+    #adata = ana.get_adata(force_sparse=True)
+    adata = ana.get_adata()
     cluster_method = 'louvain'
+
+    if 'base' not in adata.uns['log1p']:
+        adata.uns['log1p']["base"] = None
 
     if ana.type == 'primary':
         ## dirty hack for BICCN dataset customization
@@ -116,8 +120,10 @@ def main():
     # Currently does not work on my Docker instance, which is using a more recent version of Scanpy since I could not build with the gEAR prod versions anymore
     ax = sc.pl.rank_genes_groups(adata, groups=[query_cluster],
                                  gene_symbols='gene_symbol', n_genes=n_genes, save="_comp_ranked.png")
+    #ax = sc.pl.rank_genes_groups_violin(adata, groups=query_cluster, use_raw=False,
+    #                                    gene_symbols='gene_symbol', n_genes=n_genes, save="_comp_violin.png")
     ax = sc.pl.rank_genes_groups_violin(adata, groups=query_cluster, use_raw=False,
-                                        gene_symbols='gene_symbol', n_genes=n_genes, save="_comp_violin.png")
+                                        n_genes=n_genes, save="_comp_violin.png")
 
     result = {'success': 1, 'cluster_label': cluster_method}
 
@@ -141,9 +147,10 @@ def main():
 
         ax = sc.pl.rank_genes_groups(adata, groups=[reference_cluster],
                                      gene_symbols='gene_symbol', n_genes=n_genes, save="_comp_ranked_rev.png")
+        #ax = sc.pl.rank_genes_groups_violin(adata, groups=reference_cluster, use_raw = False,
+        #                                    gene_symbols='gene_symbol', n_genes=n_genes, save="_comp_violin_rev.png")
         ax = sc.pl.rank_genes_groups_violin(adata, groups=reference_cluster, use_raw = False,
-                                            gene_symbols='gene_symbol', n_genes=n_genes, save="_comp_violin_rev.png")
-
+                                            n_genes=n_genes, save="_comp_violin_rev.png")
     if method == 'logreg':
         result['table_json_r'] = ''
     else:
