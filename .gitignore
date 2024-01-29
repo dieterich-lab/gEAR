@@ -22,6 +22,8 @@ www/datasets_epigenetic/uploads/files/*
 
 
 __pycache__
+www/.lesshst
+www/.local/
 www/.bash_history
 www/.cache/
 www/.python_history
