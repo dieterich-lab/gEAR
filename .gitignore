@@ -31,3 +31,4 @@ www/.vim/
 www/.viminfo
 www/contact_screenshots/*.jpg
 *.debug
+.idea
