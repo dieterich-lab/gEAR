@@ -25,10 +25,13 @@ sc.settings.verbosity = 0
 def main():
     form = cgi.FieldStorage()
     dataset_id = form.getvalue('dataset_id')
-    condition1 = form.getvalue('condition_x')
-    condition2 = form.getvalue('condition_y')
-    #std_dev_num_cutoff = form.getvalue('std_dev_num_cutoff')
-    #std_dev_num_cutoff = float(std_dev_num_cutoff) if std_dev_num_cutoff else None
+    filters = form.getvalue('obs_filters', "")    # Dict of lists
+
+    compare_key = form.getvalue('compare_key')
+    x_compare = form.getvalue('condition_x')    # list of conditions
+    y_compare = form.getvalue('condition_y')
+    std_dev_num_cutoff = form.getvalue('std_dev_num_cutoff')
+    std_dev_num_cutoff = float(std_dev_num_cutoff) if std_dev_num_cutoff else None
     fold_change_cutoff = form.getvalue('fold_change_cutoff')
     fold_change_cutoff = float(fold_change_cutoff) if fold_change_cutoff else None
     log_transformation = form.getvalue('log_transformation')
@@ -36,7 +39,7 @@ def main():
         log_transformation = False
     elif log_transformation == 'None':
         log_transformation = None
-    else: 
+    else:
         log_transformation = int(log_transformation)
     statistical_test = form.getvalue('statistical_test')
 
@@ -50,7 +53,11 @@ def main():
         msg = "No h5 file found for this dataset"
         return_error_response(msg)
 
-    if condition1 == condition2:
+    if not x_compare or not y_compare:
+        msg = "Please select a condition for both the X and Y axis"
+        return_error_response(msg)
+
+    if x_compare == y_compare:
         msg = "Selected conditions are identical. Please select different conditions."
         return_error_response(msg)
 
@@ -59,94 +66,51 @@ def main():
     if statistical_test:
         perform_ranking = True
 
-    adata = sc.read(h5_path)
+    adata = sc.read_h5ad(h5_path)
 
-    # Get all categorical columns
-    #cols_x = [col for col in adata.obs.columns if adata.obs[col].dtype.name == 'category']
+    filters = json.loads(filters)
+    # Filter by obs filters
+    if filters:
+        for col, values in filters.items():
+            selected_filter = adata.obs[col].isin(values)
+            adata = adata[selected_filter, :]
 
-    # If there are multiple columns, create a composite
-    # Only keep columns that had a group selected in the UI
-    # NOTE: There may be an edge case where the user selected a group for cond. 1 and nothing for cond. 2 which would leave the column being omitted from the composite
-    cols_to_keep = []
-    cond1 = json.loads(condition1)
-    cols_to_keep.extend([col for col in cond1 if not col in cols_to_keep])
-    cond2 = json.loads(condition2)
-    cols_to_keep.extend([col for col in cond2 if not col in cols_to_keep])
+    x_compare = json.loads(x_compare)
+    y_compare = json.loads(y_compare)
 
-    # Add new column to combine various groups into a single index
-    adata.obs['comparison_composite_index'] = adata.obs[cols_to_keep].apply(lambda x: ';'.join(map(str,x)), axis=1)
-    adata.obs['comparison_composite_index'] = adata.obs['comparison_composite_index'].astype('category')
-    unique_composite_indexes = adata.obs["comparison_composite_index"].unique()
-
-    # Only want to keep indexes that match chosen filters
-    cond1_composite_idx = create_filtered_composite_indexes(cond1, unique_composite_indexes.tolist())
-    cond2_composite_idx = create_filtered_composite_indexes(cond2, unique_composite_indexes.tolist())
-
-    # Exit with error if there is no valid composite index mask created
-    # Example would be a duplicated obs column where only A was selected in col1 and only B was selected in col2
-    if not cond1_composite_idx:
-        msg = "The X-axis condition selected combination does not exist for this dataset"
+    # Error if any condition in x matches any condition in y
+    intersection_conditions = intersection(x_compare, y_compare)
+    if intersection_conditions:
+        msg = f"The follwing conditions were found in both X and Y: {intersection_conditions}. Please select unique conditions."
         return_error_response(msg)
 
-    if not cond2_composite_idx:
-        msg = "The Y-axis condition selected combination does not exist for this dataset"
-        return_error_response(msg)
+    condition_x_repls_filter = adata.obs[compare_key].isin(x_compare)
+    condition_y_repls_filter = adata.obs[compare_key].isin(y_compare)
+
+    # Assign categorical values if sample is in x_compare or y_compare
+    adata.obs['compare'] = 'neither'
+    adata.obs.loc[condition_x_repls_filter, 'compare'] = 'x'
+    adata.obs.loc[condition_y_repls_filter, 'compare'] = 'y'
 
     # rank_genes_groups expects logarithmized data
     if not log_transformation is False:
         sc.pp.log1p(adata, base=log_transformation)
 
     # add the composite column for ranked grouping
-    
-    # call rank_genes_groups - the whole script should be re-written anyway...
-    # use log2 fold changes calculated by rank_genes_groups
-    # also an approximation calculated from mean-log values.
-    
-    #if perform_ranking == True:
-    
-    # this is arbitrary... could have been set as an option?
-    sc.pp.filter_cells(adata, min_genes=3)
-    sc.pp.filter_genes(adata, min_cells=1)
+    if perform_ranking == True:
+        try:
+            # TODO: Had the tool crash here and apache restart resolved it.  Need to investigate.
+            sc.pp.filter_cells(adata, min_genes=10)
+            sc.pp.filter_genes(adata, min_cells=1)
+        except Exception as e:
+            msg = "scanpy.pp.filter_cells or scanpy.pp.filter_genes failed.\n{}".format(str(e))
+            return_error_response(msg)
 
-    # Scanpy.rank_genes_groups can handle multiple groups, but our output is designed for just one gropu
-    if len(cond1_composite_idx) > 1:
-        msg = "Detected multiple possible conditions for the X-axis condition (the query condition)." + \
-            "In order to perform a significance test, please ensure that your set conditions are such so that only 1 possible combination of conditions can be used as the query condition." + \
-            "<br />Curated set conditions: {}".format(cond1_composite_idx)
-        return_error_response(msg)
-
-    if len(cond2_composite_idx) > 1:
-        msg = "Detected multiple possible conditions for the Y-axis condition (the reference condition)." + \
-            "In order to perform a significance test, please ensure that your set conditions are such so that only 1 possible combination of conditions can be used as the reference condition." + \
-            "<br />Curated set conditions: {}".format(cond2_composite_idx)
-        return_error_response(msg)
-
-    try:
-        # log_transformed=False is ignored
-        sc.tl.rank_genes_groups(adata, 
-                                'comparison_composite_index', 
-                                groups=cond1_composite_idx, 
-                                reference=cond2_composite_idx[0], 
-                                n_genes=0, 
-                                rankby_abs=False, # rank genes by the absolute value of the score, not by the score. Default = False
-                                copy=False, 
-                                use_raw=False, # make sure to use X in case raw is present
-                                method=statistical_test, 
-                                corr_method='benjamini-hochberg')
-    except Exception as e:
-        msg = "scanpy.rank_genes_groups failed.\n{}".format(str(e))
-        return_error_response(msg)
-
-    # set the ordering to that of adata and use dataframe to simplify
-    ranked = sc.get.rank_genes_groups_df(adata, group=None).set_index("names", drop=True) 
-    ranked = ranked.reindex(index=adata.var.index)
-
-    # Set the index as the composite column so we can more easily match the dataset condition being searched.
-    # Our condition has the convention of <column_name>;<column_name>;...
-    # In order to index our dataframe on our condition, we need to map over each
-    # row and set its levels with the same convention. For example, the condition
-    # cochlea;GFP+;E16 would be set as an index so it can be sliced.
-    adata.obs = adata.obs.set_index('comparison_composite_index')
+        try:
+            sc.tl.rank_genes_groups(adata, "compare", groups=["x"], reference="y", n_genes=0, rankby_abs=False, copy=False, method=statistical_test, corr_method='benjamini-hochberg', log_transformed=False)
+        except Exception as e:
+            msg = "scanpy.rank_genes_groups failed.\n{}".format(str(e))
+            return_error_response(msg)
 
     # AnnData does not yet allow slices on both rows and columns
     # with boolean indices, so first filter genes and then grab
@@ -155,13 +119,12 @@ def main():
     # Match the condition (ex. A1;ADULT;F) to all
     # the rows in obs, and use this to aggregate the mean
     # SAdkins - This works with and without replicates
-    condition_x_repls_filter = adata.obs.index.isin(cond1_composite_idx)
-    condition_y_repls_filter = adata.obs.index.isin(cond2_composite_idx)
+
     adata_x_subset = adata[condition_x_repls_filter, :]
     adata_y_subset = adata[condition_y_repls_filter, :]
-    
+
     # now mean-log values
-    
+
     df_x = pd.DataFrame({
         # adata.X ends up being 2 dimensional array with gene's values going down a column.
         # We tranpose so a gene's replicate values are in a list and then we take the average
@@ -169,10 +132,10 @@ def main():
         'e2_raw': [float(replicate_values.mean()) for replicate_values in adata_y_subset.X.transpose()],
         'gene_sym': adata_x_subset.var.gene_symbol
     })
-    
+
     # add log2 fold changes from scanpy
     df_x['log2_fc'] = ranked['logfoldchanges'].values
-    
+
     if perform_ranking:
         #df_x['pvals_adj'] = adata.uns['rank_genes_groups']['pvals_adj']
         df_x['pvals_adj'] = ranked['pvals_adj'].values
@@ -245,7 +208,7 @@ def main():
         #filtered_gene_ids = list()
         #filtered_symbols = list()
         #filtered_fold_changes = list()
-    
+
     if fold_change_cutoff > 0:
         idx = 0
 
@@ -276,25 +239,17 @@ def main():
         #filtered_x = list()
         #filtered_y = list()
 
-    ## Is there a transformation to apply?
-    #if log_transformation == "2":
-        #for (e1_raw, e2_raw) in result['values']:
-            #transformed_e1 = get_log2(e1_raw)
-            #transformed_e2 = get_log2(e2_raw)
+    # Is there a transformation to apply?
+    log_base = None
+    if log_transformation == "2":
+        log_base = 2
+    elif log_transformation == "10":
+        log_base = 10
 
-            #if transformed_e1 is not None and transformed_e2 is not None:
-                #filtered_x.append(transformed_e1)
-                #filtered_y.append(transformed_e2)
-                #filtered_values.append([transformed_e1,transformed_e2])
-
-        #result['values'] = filtered_values
-        #result['x'] = filtered_x
-        #result['y'] = filtered_y
-
-    #elif log_transformation == "10":
-        #for (e1_raw, e2_raw) in result['values']:
-            #transformed_e1 = get_log10(e1_raw)
-            #transformed_e2 = get_log10(e2_raw)
+    if log_base:
+        for (e1_raw, e2_raw) in result['values']:
+            transformed_e1 = get_log(e1_raw, log_base)
+            transformed_e2 = get_log(e2_raw, log_base)
 
             #if transformed_e1 is not None and transformed_e2 is not None:
                 #filtered_x.append(transformed_e1)
@@ -306,56 +261,30 @@ def main():
         #result['y'] = filtered_y
 
     result['fold_change_std_dev'] = "{0:.2f}".format(fold_change_std_dev)
-    result['condition_x_idx'] = cond1_composite_idx
-    result['condition_y_idx'] = cond2_composite_idx
+    result["compare_key"] = compare_key
+    result['condition_x'] = x_compare
+    result['condition_y'] = y_compare
     sys.stdout = original_stdout
     print('Content-Type: application/json\n\n')
     print(json.dumps(result))
-
-def create_filtered_composite_indexes(filters, composite_indexes):
-    """Create an index based on the 'comparison_composite_index' column."""
-    all_vals = [v for k, v in filters.items()]  # List of lists
-    # Remove empty nested lists (list should now have nested lists equal to number of categories with selected groups)
-    all_vals = [x for x in all_vals if x]
-
-    # itertools.product returns a combation of every value from every list
-    # Essentially  ((x,y) for x in A for y in B)
-    filter_combinations = product(*all_vals)
-    string_filter_combinations = [";".join(v) for v in filter_combinations]
-
-    # This contains combinations of indexes that may not exist in the dataframe.
-    # Use composite indexes from dataframe to return valid filtered indexes
-    return intersection(string_filter_combinations, composite_indexes)
 
 def fold_change(x, y):
     if x >= y:
         if y == 0:
             return x
-        else:
-            return x / y
-    else:
-        if x == 0:
-            return y
-        else:
-            return y / x
+        return x / y
+    if x == 0:
+        return y
+    return y / x
 
-def get_log10(val):
+def get_log(val, base):
     if val == 0:
         return 0
-    else:
-        try:
-            return math.log10(val)
-        except ValueError:
-            return None
+    try:
+        return math.log(val, base)
+    except ValueError:
+        return None
 
-def get_log2(val):
-    if val == 0:
-        return 0
-    else:
-        try:
-            return math.log2(val)
-        except ValueError:
-            return None
 
 def intersection(lst1, lst2):
     """Intersection of two lists."""

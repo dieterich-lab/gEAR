@@ -7,10 +7,14 @@ lib_path = os.path.abspath(os.path.join('..', '..', 'lib'))
 sys.path.append(lib_path)
 import geardb
 import mysql.connector
+from werkzeug.utils import secure_filename
 
 
 def attempt_symlink(cursor, user_id, dataset_id, display_id, is_multigene):
     """Attempt to create a symlink if the user of the saved display is also the dataset owner."""
+
+    dataset_id = secure_filename(dataset_id)
+    display_id = secure_filename(display_id)
 
     DATASET_PREVIEWS_DIR = "/var/www/img/dataset_previews"
 
@@ -46,6 +50,9 @@ def attempt_symlink(cursor, user_id, dataset_id, display_id, is_multigene):
             pass
 
         os.symlink(filename, symlink_path)
+    else:
+        print("Will not create 'default static image' symlink for display id {}. " \
+            "Most likely the user requesting to make the display default is not the dataset owner".format(display_id), file=sys.stderr)
 
 
 def main():
@@ -53,10 +60,13 @@ def main():
     sys.stdout = open(os.devnull, 'w')
 
     form = cgi.FieldStorage()
-    user_id = form.getvalue('user_id')
+    session_id = form.getvalue('session_id')
     dataset_id = form.getvalue('dataset_id')
     display_id = form.getvalue('display_id')
     is_multigene = int(form.getvalue('is_multigene', 0))
+
+    user = geardb.get_user_from_session_id(session_id=session_id)
+    user_id = user.id
 
     cnx = geardb.Connection()
     cursor = cnx.get_cursor()
@@ -69,6 +79,7 @@ def main():
         cursor.execute(query, (user_id, dataset_id, display_id, is_multigene))
         result = dict(success=True)
     except mysql.connector.Error as err:
+        print("Something went wrong: {}".format(err), file=sys.stderr)
         result = dict(success=False)
 
     attempt_symlink(cursor, user_id, dataset_id, display_id, is_multigene)

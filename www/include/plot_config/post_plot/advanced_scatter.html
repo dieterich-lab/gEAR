@@ -1,0 +1,43 @@
+<label class="content is-flex is-justify-content-space-between pr-3 checkbox">
+    <span class="has-text-weight-medium">Convert to strip plot</span>
+    <input class="js-plotly-add-jitter" id="add-jitter-post" type="checkbox">
+</label>
+
+
+<!-- vertical lines -->
+<section id="vlines-container" class="is-hidden">
+    Add vertical lines to plot
+    <div class="is-pulled-right js-plotly-vline-template" id="vlines-body">
+        <div class="field has-addons js-plotly-vline-field">
+            <div class="control">
+                <input class="input js-plotly-vline-pos" type="number">
+            </div>
+            <div class="control">
+                <div class="select js-plotly-vline-style-select">
+                    <select>
+                        <option value="solid">Solid</option>
+                        <option value="dash">Dash</option>
+                        <option value="dot">Dotted</option>
+                        <option value="dashdot">Dash-dot</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="field is-grouped">
+        <div class="control">
+            <button class="button" id="vline-add-btn">
+                <span class="icon">
+                    <i class="mdi mdi-plus"></i>
+                </span>
+            </button>
+        </div>
+        <div class="control">
+            <button class="button" id="vline-remove-btn" disabled>
+                <span class="icon">
+                    <i class="mdi mdi-minus"></i>
+                </span>
+            </button>
+        </div>
+    </div>
+</section>

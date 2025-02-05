@@ -1,9 +1,0 @@
-[database]
-user = [user]
-password = [pass]
-host = db
-name = [db_name]
-
-[email_sender]
-address = [gear_email]
-password = [pass]

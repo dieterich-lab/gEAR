@@ -28,6 +28,15 @@ body {
     /* leaves room for footer*/
     margin-bottom: 200px;
 }
+
+/*
+SAdkins - would like to add this one day (for people who need to tab) but focus does not go away after clicking button
+Would need to write JS to remove focus after a click event.
+button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px lightskyblue;
+}*/
+
 div.clear_hack {
     clear: both;
 }
@@ -147,9 +156,10 @@ a#main_logo {
 button#btn_sign_in {
     margin-right: 5px;
 }
+
 div#login_controls .nav-item,
 div#loggedin_controls .nav-item {
-    padding-right: 20px;
+    padding-right: 30px;
 }
 div#loggedin_controls {
     display: none;
@@ -170,23 +180,28 @@ div#site_label {
 form#login_form input {
     margin-right: 5px;
 }
-li > #manual_link,
-li > #comment_link {
+
+li > .js-video-link,
+li > .js-user-guide-link,
+li > .js-comment-link {
     color: #fff;
     background-color: var(--banner-bg-color);
     font-size: 120%;
 }
-li > #manual_link:hover,
-li > #comment_link:hover,
-li.active > #manual_link,
-li.active > #comment_link {
+.nav-item .nav-item-title,
+.user_logged_in {
+    font-family: 'Muli', sans-serif;
+}
+
+.js-video-link:hover,
+.js-user-guide-link:hover,
+.js-comment-link:hover,
+li.active > .js-video-link,
+li.active > .js-user-guide-link,
+li.active > .js-comment-link {
     color: #fff;
     background-color: #A28CA7;
     background-image: none;
-}
-span#new_msg_count_c {
-    background-color: #d9534f;
-    padding: 7px 7px;
 }
 ul#user_menu {
     z-index: 5;
@@ -205,3 +220,13 @@ div.jstree {
     overflow-y: auto;
     overflow-x: hidden;
 }
+
+/* Hover area created for plotly plots */
+.hoverarea {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    text-align: right;
+    padding: 10px;
+    /*background-color: var(--main-section-launcher-bg-color-inactive);*/
+  }

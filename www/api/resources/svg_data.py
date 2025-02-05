@@ -7,24 +7,9 @@ import scanpy as sc
 from flask import request
 from flask_restful import Resource
 
+from gear.plotting import PlotError
+from .common import create_projection_adata
 
-class PlotError(Exception):
-    """Error based on plotting issues."""
-    def __init__(self, message="") -> None:
-        self.message = message
-        super().__init__(self.message)
-
-def create_projection_adata(dataset_adata, projection_csv):
-    # Create AnnData object out of readable CSV file
-    # ? Does it make sense to put this in the geardb/Analysis class?
-    try:
-        projection_adata = sc.read_csv("/tmp/{}".format(projection_csv))
-    except:
-        raise PlotError("Could not create projection AnnData object from CSV.")
-
-    projection_adata.obs = dataset_adata.obs
-    projection_adata.var["gene_symbol"] = projection_adata.var_names
-    return projection_adata
 
 class SvgData(Resource):
     """Resource for retrieving data from h5ad to be used to color svgs.
@@ -45,18 +30,8 @@ class SvgData(Resource):
             }
 
         dataset = geardb.get_dataset_by_id(dataset_id)
-        # If the dataset is not public, make sure the user
-        # requesting resource owns the dataset
-        # This is commented right now until we work out modeling URL-shared datasets/profiles
-        #if not dataset.is_public:
-        #    session_id = request.cookies.get('gear_session_id')
-        #    user = geardb.get_user_from_session_id(session_id)
-        #    if user.id != dataset.owner_id:
-        #        return {
-        #            "success": -1,
-        #            "message": 'Only the owner can access this dataset.'
-        #        }
 
+        # ! SVG analysis does not operate on analysis objects.
 
         h5_path = dataset.get_file_path()
         if not os.path.exists(h5_path):
@@ -68,31 +43,32 @@ class SvgData(Resource):
         adata = sc.read_h5ad(h5_path)
 
         if projection_id:
-            projection_csv = "{}.csv".format(projection_id)
             try:
-                adata = create_projection_adata(adata, projection_csv)
+                adata = create_projection_adata(adata, dataset_id, projection_id)
             except PlotError as pe:
                 return {
                     'success': -1,
                     'message': str(pe),
                 }
 
+
         gene_symbols = (gene_symbol,)
 
-        if 'gene_symbol' in adata.var.columns:
-            gene_filter = adata.var.gene_symbol.isin(gene_symbols)
-            if not gene_filter.any():
-                return {
-                    "success": -1,
-                    "message": "Gene not found."
-                }
-        else:
+        if 'gene_symbol' not in adata.var.columns:
+            return {"success": -1, "message": "The h5ad is missing the gene_symbol column."}
+
+        gene_filter = adata.var.gene_symbol.isin(gene_symbols)
+        if not gene_filter.any():
             return {
                 "success": -1,
-                "message": "The h5ad is missing gene_symbol.",
+                "message": "The gene symbol '{}' was not found in the dataset.".format(gene_symbol)
             }
 
-        selected = adata[:, gene_filter]
+        try:
+            selected = adata[:, gene_filter].to_memory()
+        except:
+            # The "try" may fail for projections as it is already in memory
+            selected = adata[:, gene_filter]
 
         df = selected.to_df()
 
@@ -125,6 +101,10 @@ class SvgData(Resource):
                 "max": float(tissue_adata.X[~np.isnan(tissue_adata.X)].max())
             }
 
+        # Close adata so that we do not have a stale opened object
+        if adata.isbacked:
+            adata.file.close()
+
         # Get the average for all cells if there is a cell_type
         # in case there is an SVG path that has the convention
         # {tissue}--mean
@@ -132,7 +112,7 @@ class SvgData(Resource):
             df = selected.to_df()
             df = pd.concat([df, selected.obs["cell_type"]], axis=1)
 
-            cell_type_avgs = df.groupby('cell_type').mean()
+            cell_type_avgs = df.groupby('cell_type', observed=False).mean()
             # Add mean label
             mean_labels = cell_type_avgs.reset_index()['cell_type'].apply(
                 lambda cell_type: f"{cell_type}--mean")
@@ -149,6 +129,10 @@ class SvgData(Resource):
             df = pd.concat([df, selected.obs], axis=1)
 
         df = df.rename(columns={df.columns[0]: "data"})
+
+        # Close adata so that we do not have a stale opened object
+        if selected.isbacked:
+            selected.file.close()
 
         return {
             "success": success,

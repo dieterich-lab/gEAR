@@ -123,7 +123,7 @@ def get_fp_gene_searches(base_dir):
             if file_is_compressed:
                 line = line.decode()
 
-            m = re.search('search_genes.py', line)
+            m = re.search('search_genes.cgi', line)
             if m:
                 gene_search_count += 1
 
@@ -175,7 +175,7 @@ def get_h5ad_count():
         if h5_file.endswith('h5ad'):
             sc.settings.verbosity = 0
             adata = sc.read_h5ad(os.path.join(h5ad_dir, h5_file))
-            print('...counting {0}'.format(h5_file))
+            print('... counting {0}'.format(h5_file))
 
             #Get only the observed data
             obs_matrix = adata.X.copy()
@@ -184,8 +184,11 @@ def get_h5ad_count():
             # https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.sparse.csr_matrix.nnz.html
             # "Get the count of explicitly-stored values (nonzeros)"
             sp_arr = csr_matrix(obs_matrix)
-            h5ad_expression_count += sp_arr.nnz
+            this_count = sp_arr.nnz
+            h5ad_expression_count += this_count
 
+            print("\tAdding {0} expression points for a total of: {1}".format(this_count, h5ad_expression_count))
+            
     print('...Done')
     return h5ad_expression_count
 

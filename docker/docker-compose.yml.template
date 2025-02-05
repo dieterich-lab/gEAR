@@ -1,0 +1,48 @@
+version: '3'
+
+networks:
+  gear:
+
+services:
+  db:
+    environment:
+      MYSQL_DATABASE: db
+      MYSQL_USER: [user]
+      MYSQL_PASSWORD: [pw]
+      MYSQL_ROOT_PASSWORD: [pw]
+    image: mysql:8.0.20-oracle  # for arm64v8 architecture
+    networks:
+      - gear
+    ports:
+      - "3306:3306"
+    restart: always
+    volumes:
+      - ./mysql:/var/lib/mysql
+
+  web:
+    build: .
+    depends_on:
+      - db
+    image: umgear:main
+    networks:
+      - gear
+    ports:
+      - "8080:80"
+    restart: on-failure
+    volumes:
+      - ..:/opt/gEAR/
+
+  queue:
+    image: rabbitmq:3.11.4
+    networks:
+      - gear
+    ports:
+      - "5672:5672"
+    restart: always
+
+  # consumer:
+  #   image: busybox
+  #   tty: true
+  #   volumes:
+  #     - python_vol:/opt/Python-3.10.4
+  #     - ..:/opt/gEAR

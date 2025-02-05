@@ -1,58 +1,274 @@
 "use strict";
 
 /*
-Gene Cart and Profile tree stuff
-
-Just about everything here uses the JSTree library - jstree.com
+Component to manage tree views for various data
 */
 
-/** Base class representing a tree structure */
 class Tree {
-    /**
+        /**
      * Initialize tree.
      * @constructor
      * @param {Object} - Tree data.
      */
     constructor({
-        treeDiv
-        , storedValElt
+        element // element node, not ID
+        , searchElement // same as above
+        , selectCallback
     } = {}) {
-        this.treeDiv = treeDiv; // Element to generate the tree structure on
-        this.storedValElt = storedValElt;   // Element to store text, vals, and data properties on
-
-        this.setTree();
+        this.element = element; // Element to generate the tree structure on
+        this.searchElement = searchElement  // Element that is used to query and filter datasets (i.e. search text box)
+        this.selectCallback = selectCallback || ((e) => {})   // Callback to execute if node is "activated"
     }
 
-    isTree() {
-        return Boolean(this.tree)
+    // Generate the tree structure for the DOM and return the JSTree object.
+    generateTree () {
+        this.generateTreeData();
+
+        this.tree = new mar10.Wunderbaum({
+            // https://mar10.github.io/wunderbaum/api/interfaces/wb_options.WunderbaumOptions.html
+            element: this.element,
+            source: this.treeData,
+            filter: {
+                // https://github.com/mar10/wunderbaum/blob/c393a7a4e01a8c6bb9084002d3a70b9e18bcc974/src/wb_ext_filter.ts
+                connectInput: this.searchElement,
+                autoExpand: true,
+                mode: "hide",
+            },
+            types: {
+                // See https://stackoverflow.com/a/11508530 for how to use variables as object keys
+                [this.nodeType]: {icon: this.leafIcon}
+            },
+            autoCollapse: true,
+            debugLevel: 2,  // set to "warn" level
+            //event handlers
+            init: (e) => {
+                // After tree is created and data is loaded
+                e.tree.setFocus();
+            },
+            render: (e) => {
+                // e.node was rendered. We may now modify the markup...
+            },
+            click: (e) => {
+                /* Single-click folders to expand them  (previous default dbl-click) */
+                // NOTE: Clicking fast will sometimes not cause the expand/collapse
+               //if (e.node.type === "folder") e.node.setExpanded(!(e.node.isExpanded())); // toggle open/close
+                // BUG: Enabling the above code breaks clickable chevrons so we need to fix those
+            },
+            activate: (e) => {
+                this.selectCallback(e)
+            }
+        });
     }
 
-    setTree() {
-        this.tree = (this.treeDiv) ? $.jstree.reference(this.treeDiv) : undefined;
-        // $(this.treeDiv).jstree(true) returns the same as $.jstree.reference(this.treeDiv)
-        // so they may be interchanged in the codebase
+    // Create a nested folder node.
+    addFolder(treeData, folder, kwargs) {
+        // We skip folder ID 0, since it handled as id:domain_node already
+        if (folder.id == 0) {
+            return false;
+        }
+
+        // folder.parent_id == null is acceptable and is the top-level.
+
+        this.addNode(treeData, {}, folder.id, folder.parent_id, folder.label, "folder", {...kwargs})
     }
 
-    register_search() {
-    // Code from "search" section of https://www.jstree.com/plugins/
-    // Sets text input to search as tree search box.
-    const self = this;
-    let to = false;
-    // Requires searchbox to be named #{treeDiv}_q
-    $(`${this.treeDiv}_q`).keyup(() => {
-        if (to) { clearTimeout(to); }
-        to = setTimeout(() => {
-        const v = $(`${self.treeDiv}_q`).val();
-        self.tree.search(v);
-        }, 250);
-    });
+    // Add a node to the tree. Edits "treeData" inplace.
+    addNode(treeData, usedIDs, id, parentID, text, defaultNodeType, kwargs={}) {
+
+        if (defaultNodeType !== "folder") {
+            kwargs["orig_id"] = id; // Keep original ID in case value needs to be passed downstream
+            id = `${defaultNodeType}__${id}`;
+
+            // Modifies the ID to prevent duplicates.
+            while (usedIDs.hasOwnProperty(id)) {
+                // Add a dash to the exiting ID
+                id += '-';
+            }
+        }
+
+        // parentID == null is the top-level.
+
+        // [PARENT_ID, [POSITIONAL_ARGS], {KEY_VALUE_ARGS}]
+        const nodeData = [parentID, [], {key: id, title: text, type: defaultNodeType, ...kwargs}];
+
+        usedIDs[id] = true; // Used this property
+        treeData.push(nodeData)
+
     }
 
-    // Update the contents of a JSTree object with new data.
-    updateTreeData(newData=null) {
-        (this.tree).settings.core.data = newData ? newData : this.treeData;
-        (this.tree).refresh();
+    // Find first node that matches condition. Implements Wunderbaum's findFirst() method.
+    findFirst(match) {
+        return this.tree.findFirst(match);
     }
+
+}
+
+/**
+ * Class representing a Projection Source selection tree
+ * @extends Tree
+ */
+class ProjectionSourceTree extends Tree {
+    /**
+     * Initialize ProjectionSourceTree
+     * @constructor
+     * @param {Object} Data - Tree data
+     */
+    constructor({
+        ...args
+    }={}, weightedDomainGeneCarts, weightedGroupGeneCarts, weightedUserGeneCarts, weightedSharedGeneCarts, weightedPublicGeneCarts,
+        unweightedDomainGeneCarts, unweightedGroupGeneCarts, unweightedUserGeneCarts, unweightedSharedGeneCarts, unweightedPublicGeneCarts) {
+        super(args);
+
+        this["weighted-list"] = {
+            domainGeneCarts: weightedDomainGeneCarts || []
+            , groupGeneCarts: weightedGroupGeneCarts || []
+            , userGeneCarts: weightedUserGeneCarts || []
+            , sharedGeneCarts: weightedSharedGeneCarts || []
+            , publicGeneCarts: weightedPublicGeneCarts || []
+        };
+        this["unweighted-list"] = {
+            domainGeneCarts: unweightedDomainGeneCarts || []
+            , groupGeneCarts: unweightedGroupGeneCarts || []
+            , userGeneCarts: unweightedUserGeneCarts || []
+            , sharedGeneCarts: unweightedSharedGeneCarts|| []
+            , publicGeneCarts: unweightedPublicGeneCarts || []
+        };
+        // This is needed so we can add folders with labels to the tree
+        this["weighted-list"].folders = [];
+        this["unweighted-list"].folders = [];
+
+    }
+
+    nodeType = "genecart";
+    leafIcon = 'mdi mdi-cart-outline';
+    usedIDs = {};
+
+
+    getTotalWeightedCarts() {
+        // get the total number of weighted gene lists
+        return Object.keys(this["weighted-list"]).reduce((acc, curr) => acc + this["weighted-list"][curr].length, 0);
+    }
+
+    getTotalUnweightedCarts() {
+        // get the total number of unweighted gene lists
+        return Object.keys(this["unweighted-list"]).reduce((acc, curr) => acc + this["unweighted-list"][curr].length, 0);
+    }
+
+    generateTreeData() {
+        // Due to loading custom folders from db, we cannot guarantee order of loading.
+        // So we need to load a flat-file with parents instead of nested children
+        // https://mar10.github.io/wunderbaum/#/tutorial/tutorial_initialize?id=flat-parent-referencing-list
+        // [PARENT_ID, [POSITIONAL_ARGS], {KEY_VALUE_ARGS}]
+        const treeData = [
+            [null, [], {key: "unweighted_genes_node", title: `Unweighted Genes (${this.getTotalUnweightedCarts()})`, type: "folder"}],
+            ["unweighted_genes_node", [], {key: "uw_domain_node", title: `Highlighted gene lists (${this["unweighted-list"].domainGeneCarts.length})`, type: "folder"}],
+            ["unweighted_genes_node", [], {key: "uw_user_node", title: `Your gene lists (${this["unweighted-list"].userGeneCarts.length})`, type: "folder"}],
+            ["unweighted_genes_node", [], {key: "uw_group_node", title: `Group gene lists (${this["unweighted-list"].groupGeneCarts.length})`, type: "folder"}],
+            ["unweighted_genes_node", [], {key: "uw_shared_node", title: `Gene collections shared with you (${this["unweighted-list"].sharedGeneCarts.length})`, type: "folder"}],
+            ["unweighted_genes_node", [], {key: "uw_public_node", title: `Public collections from other users (${this["unweighted-list"].publicGeneCarts.length})`, type: "folder"}],
+            [null, [], {key: "weighted_genes_node", title: `Weighted Genes (${this.getTotalWeightedCarts()})`, type: "folder"}],
+            ['weighted_genes_node', [], {key: 'w_domain_node', title: `Highlighted gene lists (${this["weighted-list"].domainGeneCarts.length})`, type: "folder"}],
+            ['weighted_genes_node', [], {key: "w_user_node", title: `Your gene lists (${this["weighted-list"].userGeneCarts.length})`, type: "folder"}],
+            ['weighted_genes_node', [], {key: "w_group_node", title: `Group gene lists (${this["weighted-list"].groupGeneCarts.length})`, type: "folder"}],
+            ['weighted_genes_node', [], {key: "w_shared_node", title: `Gene collections shared with you (${this["weighted-list"].sharedGeneCarts.length})`, type: "folder"}],
+            ['weighted_genes_node', [], {key: "w_public_node", title: `Public collections from other users (${this["weighted-list"].publicGeneCarts.length})`, type: "folder"}],
+        ];
+
+        // ? Currently item.value is the gene cart share ID,
+        // ? but for unweighted gene lists it is the db ID.
+        // ? Is it worth refactoring so that the item.value is the db ID for both types?
+        // ? If so, then item.value will need to ensure that no duplicates occur.
+        // ? Could make use of "data" attribute in the tree node to store the original value and cart share ID.
+
+        // Add all the folders first
+        /*this["weighted-list"].folders.forEach( (item) => {
+            this.addFolder(treeData, item);
+        });
+        /*this["unweighted-list"].folders.forEach( (item) => {
+            this.addFolder(treeData, item);
+        });*/
+
+        // Sort the cart contents alphabetically
+        ["domainGeneCarts", "userGeneCarts", "groupGeneCarts", "sharedGeneCarts", "publicGeneCarts"].forEach(e => {
+            this["weighted-list"][e].sort((a, b) => a.text.toLowerCase() > b.text.toLowerCase() ? 1 : -1);
+            this["unweighted-list"][e].sort((a, b) => a.text.toLowerCase() > b.text.toLowerCase() ? 1 : -1);
+        })
+
+        this["weighted-list"].domainGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'w_domain_node', item.text, this.nodeType, {
+                'gctype': item.gctype,
+            });
+        });
+
+        this["weighted-list"].userGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'w_user_node', item.text, this.nodeType, {
+                'gctype': item.gctype,
+            })
+        });
+
+        this["weighted-list"].groupGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'w_group_node', item.text, this.nodeType, {
+                'gctype': item.gctype,
+            })
+        });
+
+        this["weighted-list"].sharedGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'w_shared_node', item.text, this.nodeType, {
+                'gctype': item.gctype,
+            })
+        });
+
+        this["weighted-list"].publicGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'w_public_node', item.text, this.nodeType, {
+                'gctype': item.gctype,
+            })
+        });
+
+        this["unweighted-list"].domainGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'uw_domain_node', item.text, this.nodeType, {
+                'gctype': item.gctype,
+            });
+        });
+
+        this["unweighted-list"].userGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'uw_user_node', item.text, this.nodeType, {
+                'gctype': item.gctype,
+            })
+        });
+
+        this["unweighted-list"].groupGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'uw_group_node', item.text, this.nodeType, {
+                'gctype': item.gctype,
+            })
+        });
+
+        this["unweighted-list"].sharedGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'uw_shared_node', item.text, this.nodeType, {
+                'gctype': item.gctype,
+            })
+        });
+
+        this["unweighted-list"].publicGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'uw_public_node', item.text, this.nodeType, {
+                'gctype': item.gctype,
+            })
+        });
+
+        // Create JSON tree structure for the data
+        const fullTreeData = {
+            "_format": "flat",  // Specify that data is a flat, parent-referencing list
+            "_positional": [],  // Fails if this is not provided, though we are processing everything as kwargs
+            "children": treeData
+        };
+
+        this.treeData = fullTreeData;
+        return this.treeData;
+
+    }
+
+    generateTree() { super.generateTree(); }
+
+    findFirst(match) { return super.findFirst(match); }
 
 }
 
@@ -66,198 +282,84 @@ class GeneCartTree extends Tree {
      * @constructor
      * @param {Object} Data - Tree data
      */
+
     constructor({
         ...args
     }={}, domainGeneCarts, groupGeneCarts, userGeneCarts, sharedGeneCarts, publicGeneCarts) {
         super(args);
-        this.domainGeneCarts = (domainGeneCarts) ? domainGeneCarts : [];
-        this.userGeneCarts = (userGeneCarts) ? userGeneCarts : [] ;
-        this.groupGeneCarts = (groupGeneCarts) ? groupGeneCarts : [];
-        this.sharedGeneCarts = (sharedGeneCarts) ? sharedGeneCarts : [] ;
-        this.publicGeneCarts = (publicGeneCarts) ? publicGeneCarts : [] ;
-
+        this.domainGeneCarts = domainGeneCarts || [];
+        this.userGeneCarts = userGeneCarts || [];
+        this.groupGeneCarts = groupGeneCarts || [];
+        this.sharedGeneCarts = sharedGeneCarts || [] ;
+        this.publicGeneCarts = publicGeneCarts || [] ;
+        // This is needed so we can add folders with labels to the tree
+        this.folders = [];
     }
 
-    addNode(treeData, id, parentID, text, nodeType) {
-        let nodeClass ='';
-
-        if (nodeType == 'default') {
-            nodeClass = 'jstree-ocl';
-        } else if (nodeType == 'genecart') {
-            nodeClass = 'py-0'
-        }
-
-        treeData.push({
-            'id': id,
-            'parent': parentID,
-            'text': text,
-            'type': nodeType,
-            'a_attr': {
-                'class': nodeClass,
-            }
-        })
-    }
+    nodeType = "genecart";
+    leafIcon = 'mdi mdi-cart-outline';
+    usedIDs = {};
 
     generateTreeData() {
-        // Create JSON tree structure for the data
-        const treeKeys = {'domain_node': true, 'user_node': true, 'group_node': true, 'shared_node': true, 'public_node': true};
+        // Due to loading custom folders from db, we cannot guarantee order of loading.
+        // So we need to load a flat-file with parents instead of nested children
+        // https://mar10.github.io/wunderbaum/#/tutorial/tutorial_initialize?id=flat-parent-referencing-list
+        // [PARENT_ID, [POSITIONAL_ARGS], {KEY_VALUE_ARGS}]
+
         const treeData = [
-            {'id':'domain_node', 'parent':'#', 'text':`Highlighted gene carts (${this.domainGeneCarts.length})`, 'a_attr': {'class':'jstree-ocl'}},
-            {'id':'user_node', 'parent':'#', 'text':`Your gene carts (${this.userGeneCarts.length})`, 'a_attr': {'class':'jstree-ocl'}},
-            {'id':'group_node', 'parent':'#', 'text':`Group gene carts (${this.groupGeneCarts.length})`, 'a_attr': {'class':'jstree-ocl'}},
-            {'id':'shared_node', 'parent':'#', 'text':`Gene carts shared with you (${this.sharedGeneCarts.length})`, 'a_attr': {'class':'jstree-ocl'}},
-            {'id':'public_node', 'parent':'#', 'text':`Public carts from other users (${this.publicGeneCarts.length})`, 'a_attr': {'class':'jstree-ocl'}},
+            [null, [], {key: "domain_node", title: `Highlighted gene lists (${this.domainGeneCarts.length})`, type: "folder"}],
+            [null, [], {key: "user_node", title: `Your gene lists (${this.userGeneCarts.length})`, type: "folder"}],
+            [null, [], {key: "group_node", title: `Group gene lists (${this.groupGeneCarts.length})`, type: "folder"}],
+            [null, [], {key: "shared_node", title: `Gene collections shared with you (${this.sharedGeneCarts.length})`, type: "folder"}],
+            [null, [], {key: "public_node", title: `Public collections from other users (${this.publicGeneCarts.length})`, type: "folder"}],
         ];
 
-        $.each(this.domainGeneCarts, (_i, item) => {
-            // TODO: All this parent/grandparent logic should just go into addNode
-            // If there's a parent make sure it's added, doesn't currently handle grandparents
-            if (item.folder_parent_id && ! treeKeys.hasOwnProperty(item.folder_parent_id)) {
-                this.addNode(treeData, item.folder_label, item.folder_parent_id, null, null, 'default');
-                treeKeys[item.folder_parent_id] = true;
-            }
+        // Add all the folders first
+        /*this.folders.forEach( (item) => {
+            this.addFolder(treeData, item);
+        });*/
 
-            // Now do the same for the containing folder itself
-            if (item.folder_id) {
-                item.folder_id = 'folder-' + item.folder_id;
-
-                if (item.folder_parent_id) {
-                    //item.folder_parent_id = 'folder-' + item.folder_parent_id;
-                } else {
-                    item.folder_parent_id = 'domain_node';
-                }
-
-                if (! treeKeys.hasOwnProperty(item.folder_id)) {
-                    this.addNode(treeData, item.folder_id, item.folder_parent_id, item.folder_label, 'default');
-                    treeKeys[item.folder_id] = true;
-                }
-
-                this.addNode(treeData, item.value, item.folder_id, item.text, 'genecart');
-            } else {
-                // Profile isn't in any kind of folder, so just attach it to the top-level node of this type
-                this.addNode(treeData, item.value, 'domain_node', item.text, 'genecart')
-            }
+        // Sort the cart contents alphabetically
+        ["domainGeneCarts", "userGeneCarts", "groupGeneCarts", "sharedGeneCarts", "publicGeneCarts"].forEach(e => {
+            this[e].sort((a, b) => a.text.toLowerCase() > b.text.toLowerCase() ? 1 : -1);
         });
 
-        $.each(this.userGeneCarts, (_i, item) => {
-            this.addNode(treeData, item.value, 'user_node', item.text, 'genecart')
+        this.domainGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'domain_node', item.text, this.nodeType)
         });
 
-        $.each(this.groupGeneCarts, (_i, item) => {
-            this.addNode(treeData, item.value, 'group_node', item.text, 'genecart')
+        this.userGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'user_node', item.text, this.nodeType)
         });
 
-        $.each(this.sharedGeneCarts, (_i, item) => {
-            this.addNode(treeData, item.value, 'shared_node', item.text, 'genecart')
+        this.groupGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'group_node', item.text, this.nodeType)
         });
 
-        $.each(this.publicGeneCarts, (_i, item) => {
-            this.addNode(treeData, item.value, 'public_node', item.text, 'genecart')
+        this.sharedGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'shared_node', item.text, this.nodeType)
         });
 
-        this.treeData = treeData;
+        this.publicGeneCarts.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'public_node', item.text, this.nodeType)
+        });
+
+        // Create JSON tree structure for the data
+        const fullTreeData = {
+            "_format": "flat",  // Specify that data is a flat, parent-referencing list
+            "_positional": [],  // Fails if this is not provided, though we are processing everything as kwargs
+            "children": treeData
+        };
+
+        this.treeData = fullTreeData;
         return this.treeData;
+
     }
 
-    // Load all saved gene carts for the current user
-    // TODO: Change based on gene cart manager page code
-    generateTree () {
-        this.generateTreeData();
+    generateTree() { super.generateTree(); }
 
-        // Update existing tree or generate new tree if it doesn't exist
-        if (this.tree) {
-            this.updateTreeData()
-        } else {
-            $(this.treeDiv).jstree({
-                'core':{
-                    'data':this.treeData,
-                },
-                'plugins': ["search", "types", "wholerow"],
-                /* Plugins
-                    search - search for matching items and expand tree if found
-                    types - Allows you to define node types with nesting rules and icons
-                    wholerow - makes each node block-level for easier selection
-                */
-                'search': {
-                    "show_only_matches": true
-                },
-                'types': {
-                    'default': {
-                        'icon': 'fa fa-folder-o'
-                    },
-                    'genecart': {
-                        'icon': 'fa fa-shopping-cart',
-                        'valid_children':[]
-                    }
-                }
-            })
-            this.setTree();
-        }
+    findFirst(match) { return super.findFirst(match); }
 
-        // TODO: Add some configuration to the Tree objects to not rely as heavily on a particular HTML design
-        /*
-        Example of a tree container structure, which relies on the positioning of the dropdown class
-        inspired by https://getbootstrap.com/docs/4.0/components/dropdowns/#examples
-
-        For this example:
-         '#datset_tree' is this.treeDiv
-         '#dataset_c' is this.dropdownElt
-         '#dataset' is this.dropdownToggleElt (and this.storedValElt)
-
-        <div id="dataset_c" class="form-control dropdown" aria-describedby="dataset_help">
-          <div id="dataset" value="" data-title="Click to change" class="text-truncate dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Choose dataset</div>
-          <div class="dropdown-menu w-100" aria-labelledby="dataset">
-            <form class="px-4 py-3" onsubmit="return false;">
-              <div class="input-group input-group-sm mb-3">
-                <div class="input-group-prepend">
-                  <i class="fa fa-search input-group-text" aria-hidden="true"></i>
-                </div>
-                <input type="text" class="form-control" id="dataset_tree_q" placeholder="Type to search datasets">
-              </div>
-              <div id="dataset_tree"></div>
-            </form>
-          </div>
-        </div>  <!-- end dataset_c -->
-        */
-
-        // NOTE: Using DOM tree traversal to get to the dropdown-toggle feels hacky
-        this.dropdownElt = $(this.treeDiv).closest('.dropdown');
-        // Get "toggle" for the dropdown tree. Should only be a single element, but "first()" is there for sanity's sake
-        this.dropdownToggleElt = $(this.dropdownElt).children('.dropdown-toggle').first();
-        // This element will store the text, value, and data properties of the selected node
-        this.storedValElt = (this.storedValElt) ? this.storedValElt : this.dropdownToggleElt;
-        this.register_events();
-    }
-
-    register_events() {
-        const self = this;
-        this.register_search();
-
-        // Get genes from the selected gene cart
-        $(this.treeDiv).on('select_node.jstree', (_e, data) => {
-            // Though you can select multiple nodes in the tree, let's only select the first
-            const geneCartId = data.selected[0];  // Returns node 'id' property
-            if (data.node.type === "default") {
-                // TODO: If a branch is selected, a max call stack is exceeded
-                // Do not toggle if user is navigating a branch node
-                // NOTE: If tree is inside a <form>, which cannot be nested inside another <form>, this could toggle closed anyways due to the conflict.
-                return;
-            }
-            const selectedNode = data.instance.get_node(geneCartId);
-            $(self.storedValElt).text(selectedNode.text);
-            $(self.storedValElt).val(geneCartId);
-            $(self.dropdownToggleElt).dropdown('toggle');  // Close dropdown
-            $(self.storedValElt).change(); // Force the change event to fire, triggering downstream things like getting cart members
-        }).jstree(true);
-    }
-
-    loadFromDB() {
-        //pass
-    }
-
-    saveToDB() {
-        //pass
-    }
 }
 
 /**
@@ -272,171 +374,90 @@ class ProfileTree extends Tree {
      */
     constructor({
         ...args
-    }={}, domainProfiles, userProfiles, groupProfiles, sharedProfiles) {
+    }={}, domainProfiles, userProfiles, groupProfiles, sharedProfiles, publicProfiles) {
         super(args);
-        this.domainProfiles = (domainProfiles) ? domainProfiles : [];
-        this.userProfiles = (userProfiles) ? userProfiles : [];
-        this.groupProfiles = (groupProfiles) ? groupProfiles : [];
-        this.sharedProfiles = (sharedProfiles) ? sharedProfiles : [];
+        this.domainProfiles = domainProfiles || [];
+        this.userProfiles = userProfiles || [];
+        this.groupProfiles = groupProfiles || [];
+        this.sharedProfiles = sharedProfiles || [];
+        this.publicProfiles = publicProfiles || [];
+        // This is needed so we can add folders with labels to the tree
+        this.folders = [];
     }
 
-    addNode(treeData, itemText, itemValue, itemShareID, parentID, nodeType) {
-        let nodeClass ='';
-
-        if (nodeType == 'default') {
-            nodeClass = 'jstree-ocl';
-        } else if (nodeType == 'profile') {
-            nodeClass = 'py-0'
-        }
-
-        treeData.push({
-                'id': itemValue,
-                'parent': parentID,
-                'text': itemText,
-                'type': nodeType,
-                'a_attr': {
-                    'class': nodeClass,
-                },
-                'profile_label': itemText,
-                'profile_id': itemValue,
-                'profile_share_id': itemShareID
-        });
-    }
+    nodeType = 'profile';
+    leafIcon = "mdi mdi-view-grid-outline";
+    usedIDs = {};
 
     generateTreeData() {
         // Create JSON tree structure for the data
-        const treeKeys = {'domain_node': true, 'user_node': true, 'group_node': true, 'shared_node': true};
-        const treeData = [
-            {'id':'domain_node', 'parent':'#', 'text':`Highlighted profiles (${this.domainProfiles.length})`, 'a_attr': {'class':'jstree-ocl'}},
-            {'id':'user_node', 'parent':'#', 'text':`Your profiles (${this.userProfiles.length})`, 'a_attr': {'class':'jstree-ocl'}},
-            {'id':'group_node', 'parent':'#', 'text':`Group profiles (${this.groupProfiles.length})`, 'a_attr': {'class':'jstree-ocl'}},
-            {'id':'shared_node', 'parent':'#', 'text':`Profiles shared with you (${this.sharedProfiles.length})`, 'a_attr': {'class':'jstree-ocl'}},
-        ];
+        const treeData = [];
 
-        // user_profiles/domain_profiles properties - value, text, share_id
+        // Add all the folders first
+        $.each(this.folders, (_i, item) => {
+            this.addFolder(treeData, item);
+        });
+
+        // Sort the cart contents alphabetically
+        ["domainProfiles", "userProfiles", "groupProfiles", "sharedProfiles", "publicProfiles"].forEach(e => {
+            this[e].sort((a, b) => a.text.toLowerCase() > b.text.toLowerCase() ? 1 : -1);
+        });
 
         // Load profiles into the tree data property
-        $.each(this.domainProfiles, (_i, item) => {
-            this.addNode(treeData, item.text, item.value, item.share_id, 'domain_node', 'profile');
+        this.domainProfiles.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 101, item.text, this.nodeType, {
+                'profile_label': item.text,
+                'profile_id': item.value,
+                'profile_share_id': item.share_id
+            })
         });
 
-        $.each(this.userProfiles, (_i, item) => {
-            this.addNode(treeData, item.text, item.value, item.share_id, 'user_node', 'profile');
+        this.userProfiles.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 102, item.text, this.nodeType, {
+                'profile_label': item.text,
+                'profile_id': item.value,
+                'profile_share_id': item.share_id
+            })
         });
 
-        $.each(this.groupProfiles, (_i, item) => {
-            // TODO: All this parent/grandparent logic should just go into addNode
-            // If there's a parent make sure it's added, doesn't currently handle grandparents
-            if (item.folder_parent_id && ! treeKeys.hasOwnProperty(item.folder_parent_id)) {
-                this.addNode(treeData, item.folder_label, item.folder_parent_id, null, null, 'default');
-                treeKeys[item.folder_parent_id] = true;
-            }
-
-            // Now do the same for the containing folder itself
-            if (item.folder_id) {
-                item.folder_id = 'folder-' + item.folder_id;
-
-                if (item.folder_parent_id) {
-                    //item.folder_parent_id = 'folder-' + item.folder_parent_id;
-                } else {
-                    item.folder_parent_id = 'group_node';
-                }
-
-                if (! treeKeys.hasOwnProperty(item.folder_id)) {
-                    this.addNode(treeData, item.folder_label, item.folder_id, null, item.folder_parent_id, 'default');
-                    treeKeys[item.folder_id] = true;
-                }
-
-                this.addNode(treeData, item.text, item.value, item.share_id, item.folder_id, 'profile');
-            } else {
-                // Profile isn't in any kind of folder, so just attach it to the top-level node of this type
-                this.addNode(treeData, item.text, item.value, item.share_id, 'group_node', 'profile');
-            }
+        this.groupProfiles.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 103, item.text, this.nodeType, {
+                'profile_label': item.text,
+                'profile_id': item.value,
+                'profile_share_id': item.share_id
+            });
         });
 
-        $.each(this.sharedProfiles, (_i, item) => {
-            this.addNode(treeData, item.text, item.value, item.share_id, 'shared_node', 'profile');
+        this.sharedProfiles.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 104, item.text, this.nodeType, {
+                'profile_label': item.text,
+                'profile_id': item.value,
+                'profile_share_id': item.share_id
+            })
         });
 
-        this.treeData = treeData;
+        this.publicProfiles.forEach( (item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 105, item.text, this.nodeType, {
+                'profile_label': item.text,
+                'profile_id': item.value,
+                'profile_share_id': item.share_id
+            })
+        });
+
+        // Create JSON tree structure for the data
+        const fullTreeData = {
+            "_format": "flat",  // Specify that data is a flat, parent-referencing list
+            "_positional": [],  // Fails if this is not provided, though we are processing everything as kwargs
+            "children": treeData
+        };
+
+        this.treeData = fullTreeData;
         return this.treeData;
     }
 
-    generateTree() {
+    generateTree() { super.generateTree(); }
 
-        this.generateTreeData();
-
-        // Update existing tree or generate new tree if it doesn't exist
-        if (this.tree) {
-            this.updateTreeData()
-        } else {
-            // Instantiate the tree
-            $(this.treeDiv).jstree({
-                'core':{
-                    'data':this.treeData,
-                },
-                'plugins': ["search", "types", "wholerow"],
-                'search': {
-                    "show_only_matches": true
-                },
-                'types': {
-                    'default': {
-                        'icon': 'fa fa-folder-o'
-                    },
-                    'profile': {
-                        'icon': 'fa fa-th-large',
-                        'valid_children':[]
-                    }
-                }
-            })
-            this.setTree();
-        }
-
-        // NOTE: Using DOM tree traversal to get to the dropdown-toggle feels hacky
-        this.dropdownElt = $(this.treeDiv).closest('.dropdown');
-        // Get "toggle" for the dropdown tree. Should only be a single element, but "first()" is there for sanity's sake
-        this.dropdownToggleElt = $(this.dropdownElt).children('.dropdown-toggle').first();
-        // This element will store the text, value, and data properties of the selected node
-        this.storedValElt = (this.storedValElt) ? this.storedValElt : this.dropdownToggleElt;
-        this.register_events();
-    }
-
-    // Register various ProfileTree events as object properties are updated.
-    register_events() {
-        const self = this;
-        this.register_search();
-
-        // Get layout from the selected node and close dropdown
-        $(this.treeDiv).on('select_node.jstree', (_e, data) => {
-
-            // Though you can select multiple nodes in the tree, let's only select the first
-            const layoutId = data.selected[0];  // Returns node 'id' property
-            if (data.node.type === "default") {
-                // Do not toggle if user is navigating a branch node
-                // NOTE: If tree is inside a <form>, which cannot be nested inside another <form>, this could toggle closed anyways due to the conflict.
-                return;
-            }
-            // The dropdown toggle text/val change already happens in DatasetCollectionPanel->set_layouts() for the index page,
-            // but this should be set to assist with other pages.
-            const selectedNode = data.instance.get_node(layoutId);
-            $(self.storedValElt).text(selectedNode.text);
-            $(self.storedValElt).val(layoutId);
-            $(self.storedValElt).data("profile-id", selectedNode.original.profile_id);
-            $(self.storedValElt).data("profile-label", selectedNode.original.profile_label);
-            $(self.storedValElt).data("profile-share-id", selectedNode.original.profile_share_id);
-            $(self.dropdownToggleElt).dropdown('toggle');  // Close dropdown
-            $(self.storedValElt).trigger('change');   // Force the change event to fire, triggering downstream things
-
-        }).jstree(true);
-    }
-
-    loadFromDB() {
-        //pass
-    }
-
-    saveToDB() {
-        //pass
-    }
+    findFirst(match) { return super.findFirst(match); }
 
 }
 
@@ -454,138 +475,76 @@ class DatasetTree extends Tree {
         ...args
     }={}, domainDatasets, sharedDatasets, userDatasets) {
         super(args);
-        this.domainDatasets = (domainDatasets) ? domainDatasets : [];
-        this.sharedDatasets = (sharedDatasets) ? sharedDatasets : [];
-        this.userDatasets = (userDatasets) ? userDatasets : [];
+        this.domainDatasets = domainDatasets || [];
+        this.sharedDatasets = sharedDatasets || [];
+        this.userDatasets = userDatasets || [];
+        // This is needed so we can add folders with labels to the tree
+        this.folders = [];
     }
 
+    nodeType = 'dataset';
+    treeKeys = {"domain_node": true, "shared_node": true, "user_node": true};
+    leafIcon = "mdi mdi-card-account-details-outline";
+    usedIDs = {};
+
     generateTreeData() {
-        // Create JSON tree structure for the data
+        // Due to loading custom folders from db, we cannot guarantee order of loading.
+        // So we need to load a flat-file with parents instead of nested children
+        // https://mar10.github.io/wunderbaum/#/tutorial/tutorial_initialize?id=flat-parent-referencing-list
+        // [PARENT_ID, [POSITIONAL_ARGS], {KEY_VALUE_ARGS}]
+
         const treeData = [
-            {'id':'domain_node', 'parent':'#', 'text':`Public Datasets (${this.domainDatasets.length})`, 'a_attr': {'class':'jstree-ocl'}},
-            {'id':'shared_node', 'parent':'#', 'text':`Shared Datasets (${this.sharedDatasets.length})`, 'a_attr': {'class':'jstree-ocl'}},
-            {'id':'user_node', 'parent':'#', 'text':`Your Datasets (${this.userDatasets.length})`, 'a_attr': {'class':'jstree-ocl'}},
+            [null, [], {key: "domain_node", title: `Public datasets (${this.domainDatasets.length})`, type: "folder"}],
+            [null, [], {key: "shared_node", title: `Shared datasets (${this.sharedDatasets.length})`, type: "folder"}],
+            [null, [],{key: "user_node", title: `User datasets (${this.userDatasets.length})`, type: "folder"}]
         ];
 
         // Load datasets into the tree data property
         // NOTE - Datasets can appear in multiple lists, so dataset IDs cannot be used as the node ID
-        // otherwise node leaves can turn into "default" type instead of "dataset" type
 
-        $.each(this.domainDatasets, (_i, item) => {
-            treeData.push({
-                'id': item.value,
-                'parent': 'domain_node',
-                'text': item.text,
-                'type': 'dataset',
-                'a_attr': {
-                    'class': "py-0",
-                },
-                "dataset_id": item.dataset_id,
-                'organism_id': item.organism_id
-           })
+        // Add all the folders first
+        /*this.folders.forEach( (item) => {
+            this.addFolder(treeData, item);
+        });*/
+
+        // Sort the cart contents alphabetically
+        ["domainDatasets", "userDatasets", "sharedDatasets"].forEach(e => {
+            this[e].sort((a, b) => a.text.toLowerCase() > b.text.toLowerCase() ? 1 : -1);
         });
 
-        $.each(this.sharedDatasets, (_i, item) => {
-            treeData.push({
-                'id': item.value,
-                'parent': 'shared_node',
-                'text': item.text,
-                'type': 'dataset',
-                'a_attr': {
-                    'class': "py-0",
-                },
+        this.domainDatasets.forEach((item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'domain_node', item.text, this.nodeType, {
                 "dataset_id": item.dataset_id,
                 'organism_id': item.organism_id
             })
         });
 
-        $.each(this.userDatasets, (_i, item) => {
-            treeData.push({
-                'id': item.value,
-                'parent': 'user_node',
-                'text': item.text,
-                'type': 'dataset',
-                'a_attr': {
-                    'class': "py-0",
-                },
+        this.sharedDatasets.forEach((item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'shared_node', item.text, this.nodeType, {
                 "dataset_id": item.dataset_id,
                 'organism_id': item.organism_id
             })
         });
-        this.treeData = treeData;
+
+        this.userDatasets.forEach((item) => {
+            this.addNode(treeData, this.usedIDs, item.value, 'user_node', item.text, this.nodeType, {
+                "dataset_id": item.dataset_id,
+                'organism_id': item.organism_id
+            })
+        });
+
+        // Create JSON tree structure for the data
+        const fullTreeData = {
+            "_format": "flat",  // Specify that data is a flat, parent-referencing list
+            "_positional": [],  // Fails if this is not provided, though we are processing everything as kwargs
+            "children": treeData
+        };
+
+        this.treeData = fullTreeData;
         return this.treeData;
     }
 
-    generateTree() {
+    generateTree() { super.generateTree(); }
 
-        this.generateTreeData();
-
-        // Update existing tree or generate new tree if it doesn't exist
-        if (this.tree) {
-            this.updateTreeData()
-        } else {
-            // Instantiate the tree
-            $(this.treeDiv).jstree({
-                'core':{
-                    'data':this.treeData,
-                },
-                'plugins': ["search", "types", "wholerow"],
-                'search': {
-                    "show_only_matches": true
-                },
-                'types': {
-                    'default': {
-                        'icon': 'fa fa-folder-o'
-                    },
-                    'dataset': {
-                        'icon': 'fa fa-address-card-o',
-                        'valid_children':[]
-                    }
-                }
-            })
-            this.setTree();
-        }
-
-        // NOTE: Using DOM tree traversal to get to the dropdown-toggle feels hacky
-        this.dropdownElt = $(this.treeDiv).closest('.dropdown');
-        // Get "toggle" for the dropdown tree. Should only be a single element, but "first()" is there for sanity's sake
-        this.dropdownToggleElt = $(this.dropdownElt).children('.dropdown-toggle').first();
-        // This element will store the text, value, and data properties of the selected node
-        this.storedValElt = (this.storedValElt) ? this.storedValElt : this.dropdownToggleElt;
-        this.register_events();
-    }
-
-    // Register various DatasetTree events as object properties are updated.
-    register_events() {
-        const self = this;
-        this.register_search();
-
-        // Get layout from the selected node and close dropdown
-        $(this.treeDiv).on('select_node.jstree', (_e, data) => {
-
-            // Though you can select multiple nodes in the tree, let's only select the first
-            const datasetId = data.selected[0];  // Returns node 'id' property
-            if (data.node.type === "default") {
-                // Do not toggle if user is navigating a branch node
-                // NOTE: If tree is inside a <form>, which cannot be nested inside another <form>, this could toggle closed anyways due to the conflict.
-                return;
-            }
-            const selectedNode = data.instance.get_node(datasetId);
-            $(self.storedValElt).text(selectedNode.text);
-            $(self.storedValElt).val(selectedNode.original.dataset_id);
-            $(self.storedValElt).data("dataset-id", selectedNode.original.dataset_id);
-            $(self.storedValElt).data("organism-id", selectedNode.original.organism_id);
-            $(self.dropdownToggleElt).dropdown('toggle');  // Close dropdown
-            $(self.storedValElt).trigger('change');   // Force the change event to fire, triggering downstream things
-
-        }).jstree(true);
-    }
-
-    loadFromDB() {
-        //pass
-    }
-
-    saveToDB() {
-        //pass
-    }
+    findFirst(match) { return super.findFirst(match); }
 }

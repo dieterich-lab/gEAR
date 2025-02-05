@@ -13,10 +13,20 @@ from requests.exceptions import HTTPError
 from pathlib import Path
 from uuid import uuid4
 
+from werkzeug.utils import secure_filename
+
 env_path = Path('..') / '.env'  # .env file is in "www" directory
 load_dotenv(dotenv_path=env_path)
 
 GITHUB_ACCESS_TOKEN=os.getenv("GITHUB_ACCESS_TOKEN")
+GEAR_GIT_URL="https://api.github.com/repos/jorvis/gEAR/issues"
+ASSIGNEES=["songeric1107"]
+
+PRIVATE_COL_ID = "8150789"  # "Site Comments" project column to jorvis/gEAR
+PUBLIC_COL_ID = "15595055"  # same column but for IGS/gEAR
+
+SITE_COMMENTS_PROJ_URL="https://api.github.com/projects/columns/{}/cards".format(PRIVATE_COL_ID)
+
 SCREENSHOT_DIR = "contact_screenshots"
 
 graphqlurl = 'https://api.github.com/graphql'
@@ -25,10 +35,10 @@ def main():
 
     print('Content-Type: application/json\n\n')
     result = {'error': [], 'success': 0 }
-    
+
     config = configparser.ConfigParser()
     config.read('../../gear.ini')
-    
+
     REPO_OWNER =  config['contact_form']['repo_owner']
     PUBLIC_REPO_NAME =  config['contact_form']['public_repo']
     PRIVATE_REPO_NAME =  config['contact_form']['private_repo']
@@ -51,27 +61,35 @@ def main():
     if not tag:
         tag = ''
 
+    # Get IP address of the server hosting this CGI script (to determine gEAR flavor)
+    hostname = socket.gethostname()
+    ip_address = socket.gethostbyname(hostname)
+
+    # TODO: this should probably go in the config file.
+    # Also this assumes all screenshots comes from production
+    if "nemo" in hostname:
+        SCREENSHOT_URL = "https://nemoanalytics.org/{}".format(SCREENSHOT_DIR)
+    elif "gcid" in hostname:
+        SCREENSHOT_URL = "https://gcid.umgear.org/{}".format(SCREENSHOT_DIR)
+
     # If screenshot was provided, get URL and eventually assign to body
     screenshot_url = "None"
     if screenshot and not screenshot == "null":
         ext = os.path.splitext(screenshot)[1]
         new_basename = str(uuid4()) + ext
-        src = f"../{SCREENSHOT_DIR}/files/{screenshot}"
-        dst = f"../{SCREENSHOT_DIR}/{new_basename}" # Synlink is up a directory
+        src = secure_filename(f"../{SCREENSHOT_DIR}/files/{screenshot}")
+        dst = secure_filename(f"../{SCREENSHOT_DIR}/{new_basename}") # Synlink is up a directory
         os.symlink(src, dst)
         screenshot_url = "{}/{}".format(SCREENSHOT_URL, new_basename)
 
-    # Get IP address of the server hosting this CGI script (to determine gEAR flavor)
-    hostname = socket.gethostname()
-    ip_address = socket.gethostbyname(hostname)
-
     # In an effort to not blow up the "tags" field in github, I will just indicate the tags in the body of the Github issue
     body = (f"**From:** {firstname} {lastname}\n\n"
-            f"**Email:** {email}\n\n"
-            f"**Server IP:** {ip_address}\n\n"
-            f"**Msg:** {comment}\n\n"
-            f"**Tags:** {tag.split(', ')}\n\n"
-            f"**Screenshot:** {screenshot_url}")
+           f"**Email:** {email}\n\n"
+           f"**Server IP:** {ip_address}\n\n"
+           f"**Msg:** {comment}\n\n"
+           f"**Tags:** {tag.split(', ')}\n\n"
+           f"**Screenshot:** {screenshot_url}"
+           )
 
     # Headers data (i.e. authentication)
     headers = { "Authorization": "token {}".format(GITHUB_ACCESS_TOKEN) }
@@ -91,6 +109,7 @@ def main():
         # "false" is javascript string "false"
         git_url = f'https://api.github.com/repos/{REPO_OWNER}/{PUBLIC_REPO_NAME}/issues'
         site_comments_id = PUBLIC_PRJ
+        site_comments_url = SITE_COMMENTS_PROJ_URL.replace(PRIVATE_COL_ID, PUBLIC_COL_ID)
 
     # Code from https://realpython.com/python-requests/
     try:

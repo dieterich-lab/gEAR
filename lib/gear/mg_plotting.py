@@ -5,6 +5,7 @@ import dash_bio as dashbio
 import diffxpy.api as de
 import numpy as np
 import pandas as pd
+import anndata as ad
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -139,6 +140,8 @@ def create_dot_plot(df, groupby_filters, is_log10=False, plot_title=None, colors
     return fig
 
 ### Heatmap fxns
+#from memory_profiler import profile
+#fp=open('/tmp/memory_profiler.log','w+')
 
 def add_clustergram_cluster_bars(fig, clusterbar_indexes, obs_labels=None, is_log10=False, flip_axes=False) -> None:
     """Add column traces for each filtered group.  Edits figure in-place."""
@@ -279,8 +282,9 @@ def create_clusterbar_z_value(flip_axes, groups_and_colors, key, val):
         return [[ groups_and_colors[key]["groups"].index(cgm["group"])] for cgm in val ]
     return [[ groups_and_colors[key]["groups"].index(cgm["group"]) for cgm in val ]]
 
+#@profile(stream=fp)
 def create_clustergram(df, gene_symbols, is_log10=False, cluster_obs=False, cluster_genes=False, flip_axes=False, center_around_zero=False
-                       , distance_metric="euclidean", colorscale=None, reverse_colorscale=False):
+                       , distance_metric="euclidean", colorscale=None, reverse_colorscale=False, hide_obs_labels=False, hide_gene_labels=False):
     """Generate a clustergram (heatmap+dendrogram).  Returns Plotly figure and dendrogram trace info."""
 
     # Clustergram (heatmap) plot
@@ -300,7 +304,7 @@ def create_clustergram(df, gene_symbols, is_log10=False, cluster_obs=False, clus
     if is_log10:
         values = df.loc[rows].values
 
-    hidden_labels = None
+    hidden_labels = set_hidden_labels(hide_obs_labels, hide_gene_labels, flip_axes)
 
     cluster, col_dist, row_dist = determine_axes_cluster_information(cluster_obs, cluster_genes, flip_axes, distance_metric)
 
@@ -375,6 +379,16 @@ def create_clustergram_observation_labels(df, fig, colname="composite_index", fl
     obs_axis = "yaxis11" if flip_axes else "xaxis11"
     obs_order = fig.layout[obs_axis]["ticktext"]    # Gets order of composite index observations
     return df.reindex(obs_order)[colname].tolist()  # reindex based on the observation order, and return the labels
+
+def set_hidden_labels(hide_obs, hide_genes, flip_axes):
+    hidden_labels = []
+    if hide_obs:
+        hidden_labels.append("row" if flip_axes else "col")
+    if hide_genes:
+        hidden_labels.append("col" if flip_axes else "row")
+    if not len(hidden_labels):
+        hidden_labels = None
+    return hidden_labels
 
 ### Quadrant fxns
 
@@ -500,6 +514,7 @@ def create_quadrant_plot(df, control_val, compare1_val, compare2_val, colorscale
                 x=trace["df"]["s1_c_log2FC"]
                 , y=trace["df"]["s2_c_log2FC"]
                 , name="{}:{}".format(trace["name"], str(len(trace["df"].index)))
+                , customdata=trace["df"]["ensm_id"] # Add ensembl ids
                 , text=trace["df"]["gene_symbol"]
                 , mode="markers"
                 , marker=dict(
@@ -525,8 +540,8 @@ def prep_quadrant_dataframe(adata, key, control_val, compare1_val, compare2_val,
     de_filter3 = adata.obs[key].isin([control_val])
     selected3 = adata[de_filter3, :]
     # Query needs to be appended onto ref to ensure the test results are not flipped
-    de_selected1 = selected3.concatenate(selected1)
-    de_selected2 = selected3.concatenate(selected2)
+    de_selected1 = ad.concat([selected3, selected1], merge="same")
+    de_selected2 = ad.concat([selected3, selected2], merge="same")
 
     if not is_log10:
         de_selected1.X.data = de_selected1.X.data + LOG_COUNT_ADJUSTER
@@ -557,6 +572,7 @@ def prep_quadrant_dataframe(adata, key, control_val, compare1_val, compare2_val,
     # Build the data for the final dataframe
     df_data = {
         "gene_symbol" : df1["gene"].tolist()
+        ,"ensm_id" : de_selected1.var.index
         , "s1_c_log2FC" : df1["log2fc"]
         , "s2_c_log2FC" : df2["log2fc"]
         , "s1_c_qval" : df1["qval"]
@@ -579,7 +595,7 @@ def prep_quadrant_dataframe(adata, key, control_val, compare1_val, compare2_val,
 
     return df
 
-def validate_quadrant_conditions(control_condition, compare_group1, compare_group2):
+def validate_quadrant_conditions(obs_df, control_condition, compare_group1, compare_group2):
     """Ensure quadrant conditions make sense."""
     if not (control_condition and compare_group1 and compare_group2):
         raise PlotError('Must pass three conditions in order to generate a volcano plot.')
@@ -590,6 +606,9 @@ def validate_quadrant_conditions(control_condition, compare_group1, compare_grou
 
     if control_key != compare1_key and control_key != compare2_key:
         raise PlotError("All comparable conditions must came from same observation group.")
+
+    if control_key not in obs_df.columns:
+        raise PlotError(f"Control condition {control_key} not found in observation dataframe. Please update curation.")
 
     return control_key, control_val, compare1_val, compare2_val
 
@@ -682,6 +701,13 @@ def create_stacked_violin_plot(df, groupby_filters, is_log10=False, colorscale=N
             , col=col_idx
         )
 
+        # Only show x-axis labels on the bottom row
+        fig.update_xaxes(
+            showticklabels=False if row_idx < num_rows else True
+            , row=row_idx
+            , col=col_idx
+        )
+
     update_stacked_violin_annotations(fig, primary_groups, color_map)
 
     plot_title = groupby_filters[0]
@@ -721,7 +747,7 @@ def create_violin_plot(df, groupby_filters, is_log10=False, colorscale=None, rev
     groupby = ["gene_symbol"]
     groupby.extend(groupby_filters)
     # Create groupings for traces
-    grouped = df.groupby(groupby)
+    grouped = df.groupby(groupby, observed=True)
 
     # Name is a tuple of groupings, or a string if grouped by only 1 dataseries
     # Group is the 'groupby' dataframe
@@ -870,6 +896,8 @@ def create_volcano_plot(df, query, ref, pval_threshold, logfc_bounds, use_adj_pv
     # y = log2 p-value
     # x = raw fold-change (effect size)
 
+    # NOTE: We cannot pass "customdata" to the function, so we must modify the trace afterwards.
+
     return dashbio.VolcanoPlot(
         dataframe=df
         , title="Differences in {} vs {}".format(query, ref)
@@ -877,7 +905,7 @@ def create_volcano_plot(df, query, ref, pval_threshold, logfc_bounds, use_adj_pv
         , effect_size="logfoldchanges"
         , effect_size_line=logfc_bounds
         , effect_size_line_color="black"
-        , gene="gene_symbol"
+        , gene="ensm_id"    # Will change to 'gene_symbol' in modification step later
         , genomewideline_value= -np.log10(pval_threshold)
         , genomewideline_color="black"
         , highlight_color="black"
@@ -885,7 +913,6 @@ def create_volcano_plot(df, query, ref, pval_threshold, logfc_bounds, use_adj_pv
         , snp=None
         , xlabel="log2FC"
         , ylabel="-log10(adjusted-P)" if use_adj_pvals else "-log10(P)"
-
     )
 
 def curate_volcano_datapoint_text(data):
@@ -893,7 +920,7 @@ def curate_volcano_datapoint_text(data):
     # Get rid of hover "GENE: " label.
     data['text'] = [text.split(' ')[-1] for text in data['text']]   # gene symbol
 
-def modify_volcano_plot(fig, query, ref, downcolor=None, upcolor=None):
+def modify_volcano_plot(fig, query, ref, ensm2genesymbol, downcolor=None, upcolor=None):
     """Adjust figure data to show up- and down-regulated data differently.  Edits figure in-place."""
     nonsig_data = []
     sig_data = []
@@ -905,6 +932,9 @@ def modify_volcano_plot(fig, query, ref, downcolor=None, upcolor=None):
     fig.data = nonsig_data
 
     fig.data[0]["name"] = "Nonsignificant Genes"
+    fig.data[0]["customdata"] = fig.data[0]["text"] # Ensembl ID to "customdata" and gene symbols to "text" properties
+    gene_symbol_list = [ensm2genesymbol[t] for t in fig.data[0]["text"]]
+    fig.data[0]["text"] = gene_symbol_list
 
     downcolor = downcolor or "#636EFA"
     upcolor = upcolor or "#EF553B"
@@ -914,7 +944,8 @@ def modify_volcano_plot(fig, query, ref, downcolor=None, upcolor=None):
         if data["name"] and data["name"] == "Point(s) of interest":
             downregulated = {
                 "name": "Upregulated in {}".format(ref)
-                , "text":[]
+                , "text":[] # gene_symbol
+                , "customdata":[]   # ensembl id
                 , "x":[]
                 , "y":[]
                 , "marker":{"color":downcolor}
@@ -923,6 +954,7 @@ def modify_volcano_plot(fig, query, ref, downcolor=None, upcolor=None):
             upregulated = {
                 "name": "Upregulated in {}".format(query)
                 , "text":[]
+                , "customdata":[]
                 , "x":[]
                 , "y":[]
                 , "marker":{"color":upcolor}
@@ -931,19 +963,21 @@ def modify_volcano_plot(fig, query, ref, downcolor=None, upcolor=None):
                 if data['x'][i] > 0:
                     upregulated['x'].append(data['x'][i])
                     upregulated['y'].append(data['y'][i])
-                    upregulated['text'].append(data['text'][i])
+                    upregulated['text'].append(ensm2genesymbol[data['text'][i]])
+                    upregulated['customdata'].append(data['text'][i])
 
                 else:
                     downregulated['x'].append(data['x'][i])
                     downregulated['y'].append(data['y'][i])
-                    downregulated['text'].append(data['text'][i])
-
+                    downregulated['text'].append(ensm2genesymbol[data['text'][i]])
+                    downregulated['customdata'].append(data['text'][i])
 
             for dataset in [upregulated, downregulated]:
                 trace = go.Scattergl(
                     x=dataset['x']
                     , y=dataset['y']
                     , text=dataset['text']
+                    , customdata=dataset['customdata']
                     , marker=dataset["marker"]
                     , mode="markers"
                     , name=dataset["name"]
@@ -976,7 +1010,7 @@ def prep_volcano_dataframe(adata, key, query_val, ref_val, de_test_algo="ttest",
         de_filter2 = adata.obs[key].isin([ref_val])
         selected2 = adata[de_filter2, :]
     # Query needs to be appended onto ref to ensure the test results are not flipped
-    de_selected = selected2.concatenate(selected1)
+    de_selected = ad.concat([selected2, selected1], merge="same")
 
     if not is_log10:
         de_selected.X.data = de_selected.X.data + LOG_COUNT_ADJUSTER
@@ -1005,7 +1039,7 @@ def prep_volcano_dataframe(adata, key, query_val, ref_val, de_test_algo="ttest",
 
     return df
 
-def validate_volcano_conditions(query_condition, ref_condition):
+def validate_volcano_conditions(obs_df, query_condition, ref_condition):
     """Ensure volcano conditions make sense."""
     if not (query_condition and ref_condition):
         raise PlotError('Must pass two conditions in order to generate a volcano plot.')
@@ -1019,6 +1053,9 @@ def validate_volcano_conditions(query_condition, ref_condition):
 
     if query_key != ref_key:
         raise PlotError("Both comparable conditions must came from same observation group.")
+
+    if query_key not in obs_df.columns:
+        raise PlotError("Observation key {} not found in dataset. Please update curation.".format(query_key))
 
     return query_key, query_val, ref_val
 
@@ -1083,8 +1120,8 @@ def create_dataframe_gene_mask(df, gene_symbols):
         gene_filter = df.index.isin(genes_df.index)
 
         # Get list of duplicated genes for the dataset
-        gene_counts_df = df['gene_symbol'].value_counts().to_frame()
-        dup_genes = gene_counts_df.index[gene_counts_df['gene_symbol'] > 1].tolist()
+        gene_counts_df = df['gene_symbol'].value_counts().to_frame("count") # adding name to count ensures compatibility between pandas v1.5 and v2.0+
+        dup_genes = gene_counts_df.index[gene_counts_df["count"] > 1].tolist()
 
         # Note to user which genes were duplicated.
         dup_genes_intersection = intersection(dup_genes, normalized_genes_list)
@@ -1098,31 +1135,23 @@ def create_dataframe_gene_mask(df, gene_symbols):
         genes_not_present = [gene for gene in gene_symbols if gene not in found_genes]
         if genes_not_present:
             success = 2,
-            message_list.append('<li>One or more genes were not found in the dataset: {}</li>'.format(', '.join(genes_not_present)))
+            message_list.append('<li>One or more genes were not found in the dataset nor could be mapped: {}</li>'.format(', '.join(genes_not_present)))
         message = "\n".join(message_list)
         return gene_filter, success, message
     except PlotError as pe:
         raise PlotError(str(pe))
     except Exception as e:
+        # print stack trace
+        import sys
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+
         # Catch non-PlotError stuff
         raise PlotError("There was an issue searching genes in this dataset.")
 
 def create_facet_indexes(groups):
     """Create facet indexes for subplots.  Returns a dict of group names to subplot index number."""
     return {group: idx for idx, group in enumerate(groups, start=1)}
-
-def create_filtered_composite_indexes(filters, composite_indexes):
-    """Create an index based on the 'composite_index' column."""
-    all_vals = [v for k, v in filters.items()]  # List of lists
-
-    # itertools.product returns a combation of every value from every list
-    # Essentially  ((x,y) for x in A for y in B)
-    filter_combinations = product(*all_vals)
-    string_filter_combinations = [";".join(v) for v in filter_combinations]
-
-    # This contains combinations of indexes that may not exist in the dataframe.
-    # Use composite indexes from dataframe to return valid filtered indexes
-    return intersection(string_filter_combinations, composite_indexes)
 
 def create_multicategory_axis_labels(groupby_filters, df):
     """ Creates the multicategory axis labels for a plot."""
@@ -1199,6 +1228,8 @@ def get_discrete_colors(fields, colorscale="vivid", reverse_colorscale=False, ):
         colors = color_swatch_map[colorscale][::-1] if reverse_colorscale else color_swatch_map[colorscale]
     return colors
 
+# NOTE: Currently not used as I refactored the code to use the existing retrieved colorscales
+# But keeping this here in case I want to use it again in the future
 def get_colorscale(colorscale):
     """Return colorscale 2D list for the selected premade colorscale."""
     if colorscale.lower() in px.colors.named_colorscales():

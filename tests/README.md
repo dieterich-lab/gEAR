@@ -2,63 +2,55 @@
 
 Manual UI testing is time consuming and is one of the fastest ways to make people look for another job. To keep our great people, we've created this automated testing framework to exercise as many features of the site as possible. This should free us to do more development and identify issues faster.
 
-Generally testing progresses in a few phases
+Generally testing progresses in a few phases.
 
-## API testing
+## UI Testing
 
-Starting with API testing allows us to make sure the API is working properly to do things like create accounts, insert datasets, etc.  This also sets the stage for UI testing with the data created during these first API steps.  The UI is then tested, and then we remove the testing data.
+### How to set up packages
 
-### Completed API tests
+Ensure npm is installed, and make sure you are in the `<gear_root>/tests` directory
 
-None yet listed
+```bash
+npm install --save-dev mocha chai playwright
+```
 
-### Current and pending API tests
+In the created package.json file, add within the outermost braces (you can append CLI options, like "--timeout" to the test alias as well):
 
-* Deleting an account
+```json
+"scripts": {
+  "test": "mocha"
+}
+```
 
-## UI testing
+### About the UI testing packages
 
-We use Selenium for this and these steps can take a while. Automated UI testing isn't necessarily quick, and there are a lot of pages/features to check.
+Mocha (https://mochajs.org/) is a widely-used testing framework that has a minimal setup, allows for organization of tests, and is flexible to let you choose your own libraries to extend its functionality. Mocha has interfaces for both Behavior-driven development (BDD) and Test-driven development (TDD).
 
-## Visual regression testing
+Playwright (https://playwright.dev/) is a framework used for automated end-to-end testing. You can use it to interact and test on page selectors. It also provides headless browser testing by default and works with multiple browser types, including mobile ones.
 
-These kind of tests take a screenshot of a particular HTML element and compare it to a baseline screenshot to ensure the images have not changed.  This is useful to ensure plots have not changed over time (via algorithm or parameters, etc.).
+### Strategies for UI testing
 
-### Testing using SeleniumBase
+For the front-end, most of the testing is integration and interactivity of components. Since hitting the API and returning calls can slow down this testing, the API responses are mocked so that testing can occur as fast as possible. This also has the benefit of allowing for testing via Github Actions after a commit without the need to setup a database. One major downside is that if the server-side response ever changes structure, this needs to be reflected in the mock.
 
-The preferred way to do visual regression testing is to use SeleniumBase to take the screenshot and HTML data.  Data is stored in the "visual_baseline" directory.  For each test name, a directory will be created for that test name.  The first time `seleniumbase.BaseCase.check_window()` is run, it will save a screenshot as "baseline.png" and a series of text files corresponding to various levels of HTML granularity.
+It is worth noting that end-to-end (e2e) tests may be better suited for using the actual API calls instead of mocking them.
 
-There are three levels of HTML logs:
+When testing the front-end, it is important to test in the same way a user would interact. Examples include clicking a button or looking for specific text on the page. In cases where text or a button is duplicated (i.e. Save or Cancel), we may be forced to locate testable elements using CSS selectors. While selectors work, one of the issues is that they can be subject to name-changes due to refactoring. Thus it is recommended to create testing data attributes on the HTML elements, and select using those. This will notify the other developers that this piece of HTML is directly used for testing purposes, and traditional ID and CSS selector names can be modified if necessary.  See https://playwright.dev/docs/locators#locate-by-test-id for an example.
 
-1. Nested HTML elements
-2. Number 1, plus the attribute properties present
-3. Number 2, plus the attribute values present
+### Misc Mocha and Playwright notes
 
-Calling `check_window(<test_name>, <log_level>)` after a baseline image is present will compare the current browser window's HTML tags to those in the specified level chosen, and will also screenshot a "latest" image for viewing. If the current HTML tags do not match those from the baseline run, the test fails.
+* https://mochajs.org/#arrow-functions - If using "this.timeout" then don't use arrow functions
 
-Read https://seleniumbase.io/examples/visual_testing/ReadMe/ for more infomation about
-other processes that happen when this is called.
+* async/await is not needed for finding the locator with Playwright but rather for the interactions (i.e. click, type, etc.) and some assertions that retry until they pass or timeout.
 
-### Manual screenshots
+* Playwright documentation prefers getting elements by role, name, or text since that is what users see. However sometimes it's just easier to use the locator method to grab the css selector
 
-To save a screenshot from Chrome:
+* If a route is registered multiple times for a "await page.route" method, then the most recent one wins priority.  This is useful for setting "logged-in/not logged-in" mock responses
 
-1. Right-click page -> Inspect
-2. Find div/element/HTML subset that contains the image you want to save
-3. Right-click element -> Capture Node Screenshot.
-4. The PNG image should download to a specified default location.  You can then rename it and move it to a "visual_regression_screenshots" directory for future use.
+* Mocha has a nice wiki on Github for do's and don'ts (https://github.com/mochajs/mocha/wiki)
 
-This could be used for image regression purposes, but currently we have no implementation of this.
+* The default timeout of mocha tests is 2000ms. It may be wise to set sections to a longer timeout with `this.timeout(ms)`
 
-## Writing SeleniumBase tests
-
-The paradigm that seems easiest to work with is to use two classes. The first class represents the page being tested, including properties to use in testing. This class will also contain the code that deals with page navigation and manipulation. The second class represents the tests and assertions, and is an extension of the SeleniumBase.BaseCase class.  Do note that an instance from the second class will be passed to methods in the first class, as that object is the SeleniumBase driver itself.
-
-For SeleniumBase tests, we will use pytest to run the tests. To run these tests, run `pytest <script>`.  It will run all tests with "test_" as the function name. To run in a localhost environment (to test on Docker images), pass in `--data=localhost` as a option after the script name, which gets stored in `SeleniumBase.BaseCase.data`.
-
-Reference: https://seleniumbase.io/help_docs/syntax_formats/ (see #5)
-
-### Completed UI tests
+### Current and pending UI tests
 
 #### Account creation
 
@@ -74,15 +66,7 @@ Reference: https://seleniumbase.io/help_docs/syntax_formats/ (see #5)
   * With incorrect credentials
   * With correct credentials
 
-### Current and pending UI tests
-
-#### Main Page - Display Panel mode
-
-#### Contact Us
-
-#### Analysis (single-cell) workbench
-
-#### Comparision tool
+#### Comparison tool
 
 * Select dataset
 * Select conditions
@@ -97,12 +81,52 @@ Reference: https://seleniumbase.io/help_docs/syntax_formats/ (see #5)
   * Not found genes show in that div
 * Select genes from plot
   * Ensure they show in table
-  * Ensure highlighted genes are colored
+  * Ensure highlighted genes are colored (Pou4f3)
+* Visual regression testing
+* Download gene selection table
 * Name and save gene cart
-* Download table
-* Use visual tool like needle (python package) for visual regression testing (plot doesn't differ)
-  * TODO: https://github.com/python-needle/needle
-* colorblind mode (check colorized filter colorscheme)
+
+#### Multigene Curator
+
+* Create a heatmap
+  * Must have 2+ genes
+  * Alt heatmap with cluster observations checkbox
+  * Alt heatmap with cluster genes checkbox
+  * Alt heatmap with axes flipped
+  * Distance metric for clustering observations/genes
+  * Matrix plot
+  * Sort by primary category
+* Create a violin
+  * Stacked violin plot
+  * With jitter
+* Create a volcano
+  * REQUIRED - query/ref conditions
+    * Window alert if not chosen or category is different
+  * DE Algorithm
+  * Annotate non-signficant p-values
+  * Use adjusted p-vals
+* Create a dotplot
+* Create a quadrant plot
+  * REQUIRED - query1/query2/ref conditions
+    * Window alert if not chosen or category is different
+  * DE Algorithm
+  * Foldchange cutuff
+  * FDR cutoff
+
+#### Main Page - Display Panel mode
+
+#### Contact Us
+
+#### Analysis (single-cell) workbench
+
+#### Colorblind mode
+
+* Comparision tool
+* Dataset curator
+* Multigene curator
+* Main page - display panel
+
+#### Tests that use a private dataset instead of a public one (requires login)
 
 #### Dataset (single-gene) curator
 
@@ -116,37 +140,12 @@ Reference: https://seleniumbase.io/help_docs/syntax_formats/ (see #5)
 * Create a tSNE/uMAP plot
   * split and color by a category
 * Load an existing plot
-* colorblind mode
 
 #### Multigene curator
 
 * Ensure plot is loaded when dataset is chosen (loaded from saved displays or default volcano plot)
 * Volcanoes should be disabled when no categories have 2+ groups
 * Quadrants should be disabled when no categories have 3+ groups
-* Create a heatmap
-  * Must have 2+ genes
-  * Alt heatmap with cluster observations checkbox
-  * Alt heatmap with cluster genes checkbox
-  * Alt heatmap with axes flipped
-  * Distance metric for clustering observations/genes
-* Create a violin
-  * Stacked violin plot
-  * With jitter
-* Create a volcano
-  * Categories should be not available from select if they have <2 groups
-  * REQUIRED - query/ref conditions
-    * Window alert if not chosen or category is different
-  * DE Algorithm
-  * Annotate non-signficant p-values
-  * Use adjusted p-vals
-* Create a dotplot
-* Create a quadrant plot
-  * Categories should be not available from select if they have <3 groups
-  * REQUIRED - query1/query2/ref conditions
-    * Window alert if not chosen or category is different
-  * DE Algorithm
-  * Foldchange cutuff
-  * FDR cutoff
 * Misc.
   * Primary category
   * Secondary category (may need to choose a new dataset)
@@ -159,7 +158,13 @@ Reference: https://seleniumbase.io/help_docs/syntax_formats/ (see #5)
 * Ensure heatmap and matrixplot expression value for a single gene and observation/celltype is correct
   * This tests that sorting was fine
   * For heatmaps/violins/dotplots
-* colorblind mode (check all plots
+
+#### Analysis (single-cell) Workbench
+
+* Go through all steps in new analysis
+* Resume unsaved analysis
+* Resume saved analysis
+* Load primary analysis
 
 #### Manual Documentation
 
@@ -169,53 +174,37 @@ Reference: https://seleniumbase.io/help_docs/syntax_formats/ (see #5)
 
 #### Dataset Explorer
 
-#### Gene Cart Explorer
+#### Gene List Manager
+
+* New Gene List
+  * Validation check on new label
+  * Validation check on save (label and organism)
+  * Cancel redirects correctly
+* Searching
+  * Clear search term
+  * Search and return results
+  * Sort By change
+  * Facet filters - Just one
+  * Facet filters - Select two
+  * Facet filters - Select All
+  * Facet filter - not logged in only show Public
+* Existing Gene List
+  * Expand + Collapse
+  * Expand/Collapse All
+  * Edit - Save change
+    * action links visible
+    * correct organism label
+  * Edit - Cancel
+  * Delete
 
 #### Epiviz Panel Designer
 
-## Selenium cheat sheet
+## API Testing
 
-Common imports
+TODO
 
-```python3
-from selenium import webdriver
-browser = webdriver.Chrome()
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.by import By
-```
+### Strategies for API testing
 
-Getting an element by ID
+Like the front-end tests, it may be best to mock the database return calls, and test functionality outside of the database scope, such as validation, transformation, computation etc. This may require refactoring to ensure data is prepped in its own function before or after the database actions occur. Again, the benefit here is to be able to quickly test on Github Actions.
 
-```python3
-name_box = browser.find_element(By.ID, 'inputName')
-```
-
-Typing things
-
-```python3
-name_box.send_keys('Foo')
-```
-
-Clicking something (link, button, etc.)
-
-```python3
-submit_box = browser.find_element(By.ID, 'btn_submit')
-submit_box.click()
-```
-
-Checking if an element is visible
-
-```python3
-email_warning =  browser.find_element(By.ID, 'email_invalid')
-
-if email_warning.is_displayed():
-    print("Initial E-mail wasn't provided")
-```
-
-Clear a form element
-
-```python3
-name_box = browser.find_element(By.ID, 'inputName')
-name_box.clear()
-```
+NOTE: An alternative would be to create a miniature test database dump file that can be loaded for each isolated test.

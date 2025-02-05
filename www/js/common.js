@@ -20,17 +20,20 @@ $(document).ready(() => {
     $('#navigation_bar').load('./include/navigation_bar.html', () => {
         // Load popover info
         load_forgot_password();
-
         // Now that the navigation bar is loaded, we can check if the user is logged in
         // and by extension, handle the login UI updates
         check_for_login();
+
+        if (! show_video_link()) {
+            $(".js-video-link").hide();
+        }
     });
 
     $.ajax({
         url: "/site_domain_prefs.json",
         dataType: 'json',
         //async: false,
-     }).done((data) => {
+    }).done((data) => {
         SITE_PREFS = data;
         loadCSS(`./css/by_domain/${SITE_PREFS['domain_label']}/theme_colors.${(new Date()).getTime()}.css`);
         $('#funding').load(`./include/by_domain/${SITE_PREFS['domain_label']}/funding.html`);
@@ -55,11 +58,17 @@ $(document).ready(() => {
             }
         });
 
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', SITE_PREFS['google_analytics_4_measurement_id']);
+
         // populate any site-specific labels, usually spans
         $('.domain_short_display_label').text(SITE_PREFS['domain_short_display_label']);
 
-        let page_name = location.pathname;
-        if (page_name == "/") {
+        let page_name = location.pathname.replace(/^\//, '');
+
+        if (page_name == "") {
             page_name = 'index.html';
         }
 
@@ -248,8 +257,12 @@ $('#navigation_bar').on('click', '#btn_sign_in', (e) => {
             session_id = Cookies.get('gear_session_id');
             Cookies.set('gear_default_domain', CURRENT_USER.profile);
 
+            console.log(document.URL);
+
             // do we process the current page or reload?
-            if (document.URL.includes("dataset_explorer.html")) {
+            if (document.URL.includes("dataset_explorer.html") ||
+                document.URL.includes("workshop")
+               ) {
                 location.reload();
             } else {
                 handle_login_ui_updates();
@@ -284,28 +297,31 @@ $('#navigation_bar').on('click', '#btn_sign_out', function(e){
     window.location.replace('./index.html');
 });
 
+function does_page_need_login() {
+    // these are the pages which require a login
+    return (document.URL.includes("upload_dataset.html") ||
+        document.URL.includes("analyze_dataset.html") ||
+        document.URL.includes("projection.html") ||
+        document.URL.includes("user_profile.html") ||
+        document.URL.includes("upload_epigenetic_data.html") ||
+        document.URL.includes("dataset_curator.html") ||
+        document.URL.includes("gene_cart_manager.html") ||
+        document.URL.includes("multigene_curator.html") ||
+        document.URL.includes("epiviz_panel_designer.html") ||
+        document.URL.includes("dataset_explorer.html")
+        );
+}
+
 function handle_login_ui_updates() {
     if (CURRENT_USER.session_id == null) {
-        // these are the pages which require a login
-        if (document.URL.includes("upload_dataset.html") ||
-            document.URL.includes("analyze_dataset.html") ||
-            document.URL.includes("projection.html") ||
-            document.URL.includes("user_profile.html") ||
-            document.URL.includes("upload_epigenetic_data.html") ||
-            document.URL.includes("dataset_curator.html") ||
-            document.URL.includes("gene_cart_manager.html") ||
-            document.URL.includes("multigene_curator.html") ||
-            document.URL.includes("epiviz_panel_designer.html")) {
+        if (does_page_need_login()) {
             $('div#login_warning').show();
             $('div#login_checking').hide();
             $('div#main_content').hide();
         }
 
-        if (document.URL.includes("compare_datasets.html")) {
-            populate_dataset_selection_controls();
-
-        } else if (document.URL.includes("manual.html")) {
-            $('a#manual_link').parent().addClass('active');
+        if (document.URL.includes("manual.html")) {
+            $('a#user_guide_link').parent().addClass('active');
 
         } else if (document.URL.includes("contact.html")) {
             $('a#comment_link').parent().addClass('active');
@@ -353,20 +369,11 @@ function handle_login_ui_updates() {
         load_preliminary_data();
 
     } else if (document.URL.includes("manual.html")) {
-        $('a#manual_link').parent().addClass('active');
+        $('a#user_guide_link').parent().addClass('active');
 
     }
 
-    if (document.URL.includes("upload_dataset.html") ||
-        document.URL.includes("dataset_explorer.html") ||
-        document.URL.includes("gene_cart_manager.html") ||
-        document.URL.includes("analyze_dataset.html") ||
-        document.URL.includes("projection.html") ||
-        document.URL.includes("user_profile.html") ||
-        document.URL.includes("upload_epigenetic_data.html") ||
-        document.URL.includes("dataset_curator.html") ||
-        document.URL.includes("multigene_curator.html") ||
-        document.URL.includes("epiviz_panel_designer.html")) {
+    if (does_page_need_login()) {
         $('div#login_warning').hide();
         $('div#login_checking').hide();
         $('div#main_content').show();
@@ -389,8 +396,8 @@ $(document).on('click', 'button#submit_forgot_pass_email', function(e) {
         url: './cgi/send_email.cgi',
         type: 'POST',
         data: { 'email': email, 'scope': 'forgot_password', 'destination_page': destination_page },
-        dataType: 'json',
-        success(data) {
+        dataType: 'json'
+    }).done((data) => {
             $('#submit_wait_c').hide();
             if (data.success == 1) {
                 $('#forgot_pass_c').hide();
@@ -400,10 +407,8 @@ $(document).on('click', 'button#submit_forgot_pass_email', function(e) {
             $('p#forgot_pass_instruct').hide();
             $('input#forgot_pass_email').val('');
             $('p#forgot_pass_warning, input#forgot_pass_email, button#submit_forgot_pass_email').show();
-        },
-        error(jqXHR, textStatus, errorThrown) {
-            display_error_bar(`${jqXHR.status} ${errorThrown.name}`, 'Failure to submit forgotten password form');
-        }
+    }).fail((data) => {
+        display_error_bar(`${jqXHR.status} ${errorThrown.name}`, 'Failure to submit forgotten password form');
     });
 });
 
@@ -468,6 +473,59 @@ $(document).on('click', 'button.click-once', function(e) {
     $(this).attr("disabled", true);
 });
 
+// If a video link is clicked, open the Youtube video in a new window
+$(document).on("click", ".js-video-link", (e) => {
+
+    if (document.URL.includes("dataset_explorer.html")) {
+        window.open("https://youtu.be/jZVCF2Yqm4M");
+    }
+
+    if (document.URL.includes("compare_datasets.html")) {
+        window.open("https://youtu.be/msmppWq6XrQ");
+    }
+
+    if ((document.URL.includes("index.html")) || (['/', 'index.html'].includes(location.pathname))) {
+        window.open("https://youtu.be/sr_kvm7W4OE");
+    }
+
+    return false;
+});
+
+// If user is on one of these pages, show the video walkthrough link.  Else hide it (since we do not have a video for it).
+function show_video_link() {
+    if ((document.URL.includes("dataset_explorer.html"))
+        || (document.URL.includes("compare_datasets.html"))
+        || (document.URL.includes("index.html"))
+        || (['/', 'index.html'].includes(location.pathname))) {
+            return true;
+        }
+
+    return false;
+}
+
+// If user guide link is clicked, navigate to manual page and potentially to the anchor
+$(document).on("click", ".js-user-guide-link", (e) => {
+    let anchor;
+    let manual_url = "/manual.html"
+
+    if (document.URL.includes("upload_dataset.html")) {anchor="uploading"}
+    if (document.URL.includes("analyze_dataset.html")) {anchor="workbench"}
+    if (document.URL.includes("upload_epigenetic_data.html")) {anchor="epiviz"}
+    if (document.URL.includes("dataset_curator.html")) {anchor="curation"}
+    if (document.URL.includes("dataset_explorer.html")) {anchor="profiles"}
+    //if (document.URL.includes("gene_cart_manager.html")) {}
+    if (document.URL.includes("compare_datasets.html")) {anchor="compare"}
+    if (document.URL.includes("multigene_curator.html")) {anchor="mg-curation"}
+    if (document.URL.includes("epiviz_panel_designer.html")) {anchor="epiviz"}
+
+    if (anchor) {
+        manual_url += `?doc=${anchor}`
+    }
+
+    window.open(manual_url);
+    return false;
+});
+
 // This function takes the contents of an HTML table and formats it as a tab
 //  delimited string with rows and then offers it as a file download, with
 //  excel file extension.
@@ -476,24 +534,22 @@ function download_table_as_excel(table_id, filename) {
     table_str = '';
 
     $('#' + table_id + ' thead tr th').each(function() {
-        console.info("Adding a header row of table " + table_id);
         table_str += $(this).text() + "\t";
     });
-    table_str = table_str.trim() + "\n";
+    table_str = `${table_str.trim()}\n`;
 
     $('#' + table_id + ' tbody tr').each(function() {
-        console.info("Adding a body row of table " + table_id);
         var rows = $(this).find('td');
 
         rows.each(function() {
-            table_str += $(this).text() + "\t";
+            table_str += `${$(this).text()}\t`;
         });
 
-        table_str = table_str.trim() + "\n";
+        table_str = `${table_str.trim()}\n`;
     });
 
-    var element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(table_str));
+    const element = document.createElement('a');
+    element.setAttribute('href', `data:text/plain;charset=utf-8,${encodeURIComponent(table_str)}`);
     element.setAttribute('download', filename);
     element.style.display = 'none';
     document.body.appendChild(element);
@@ -557,4 +613,33 @@ function image_loaded(img) {
     }
 
     return true;
+}
+
+// Source: https://dev.to/kepta/comment/5e6f (read main article for breakdown of function)
+function asyncLimit (fn, n) {
+    // n is the number of concurrent calls allowed
+    // Create a queue of functions to be called, never to exceed n.
+    // When a promise is resolved, ensure only 1 new function is added to the pending queue.
+
+    const pendingPromises = new Set();
+    return async function(...args) {
+        while (pendingPromises.size >= n) {
+            await Promise.race(pendingPromises);
+        }
+
+        const p = fn.apply(this, args);
+        const r = p.catch(() => {});
+        pendingPromises.add(r);
+        await r;
+        pendingPromises.delete(r);
+        return p;
+    }
+}
+
+function deepCopy(obj) {
+    // Return a deepCopy of the object if it is defined.
+    if (obj == undefined) {
+        return obj;
+    }
+    return JSON.parse(JSON.stringify(obj));
 }

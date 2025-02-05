@@ -38,7 +38,6 @@ def main():
     n_genes = int(form.getvalue('n_genes'))
     method = form.getvalue('method')
     corr_method = form.getvalue('corr_method')
-    compute_gene_comparison = int(form.getvalue('compute_gene_comparison'))
 
     if form.getvalue('group_labels'):
         group_labels = json.loads(form.getvalue('group_labels'))
@@ -48,6 +47,11 @@ def main():
     ## correction method isn't valid for logistic regression
     if method == 'logreg':
         corr_method = None
+
+    if not user:
+        sys.stdout = original_stdout
+        print('Content-Type: application/json\n\n')
+        print(json.dumps({'success': 0, 'error': 'Invalid session'}))
 
     ana = geardb.Analysis(id=analysis_id, type=analysis_type, dataset_id=dataset_id,
                           session_id=session_id, user_id=user.id)
@@ -116,14 +120,25 @@ def main():
 
     adata.X = sparse.csc_matrix(adata.X)
 
-    # NOTE: This will probably need to be updated if we update Scanpy due to some changes to adata.raw I believe
-    # Currently does not work on my Docker instance, which is using a more recent version of Scanpy since I could not build with the gEAR prod versions anymore
+    """
+    One of the scanpy versions introduced a bug that was recently fixed, where pl.rank_genes_groups works
+    but not pl.rank_genes_groups_<plot>.  I believe it is because Ensembl IDs are stored as gene_symbols for tl.rank_genes_groups
+    and pl.rank_genes_groups looks for these ensembl_ids but pl.rank_genes_groups_<plot> is erroneously looking for the gene symbols instead
+
+    Seems to work in scanpy 1.7.2 but is broke in 1.8.2 and was fixed in https://github.com/scverse/scanpy/pull/1529
+    """
+
     ax = sc.pl.rank_genes_groups(adata, groups=[query_cluster],
                                  gene_symbols='gene_symbol', n_genes=n_genes, save="_comp_ranked.png")
-    #ax = sc.pl.rank_genes_groups_violin(adata, groups=query_cluster, use_raw=False,
-    #                                    gene_symbols='gene_symbol', n_genes=n_genes, save="_comp_violin.png")
-    ax = sc.pl.rank_genes_groups_violin(adata, groups=query_cluster, use_raw=False,
-                                        n_genes=n_genes, save="_comp_violin.png")
+    try:
+        # Try 1.7.2 way first
+        ax = sc.pl.rank_genes_groups_violin(adata, groups=query_cluster, use_raw = False,
+                                            gene_symbols="gene_symbol", n_genes=n_genes, save="_comp_violin.png")
+    except:
+        # Use gene names if that doesn't work
+        gene_names = adata.var.loc[adata.uns["rank_genes_groups"]['names'][query_cluster]]["gene_symbol"][:n_genes].tolist()
+        ax = sc.pl.rank_genes_groups_violin(adata, groups=query_cluster, use_raw = False,
+                                            gene_symbols="gene_symbol", gene_names=gene_names, save="_comp_violin.png")
 
     result = {'success': 1, 'cluster_label': cluster_method}
 
@@ -147,15 +162,25 @@ def main():
 
         ax = sc.pl.rank_genes_groups(adata, groups=[reference_cluster],
                                      gene_symbols='gene_symbol', n_genes=n_genes, save="_comp_ranked_rev.png")
-        #ax = sc.pl.rank_genes_groups_violin(adata, groups=reference_cluster, use_raw = False,
-        #                                    gene_symbols='gene_symbol', n_genes=n_genes, save="_comp_violin_rev.png")
-        ax = sc.pl.rank_genes_groups_violin(adata, groups=reference_cluster, use_raw = False,
-                                            n_genes=n_genes, save="_comp_violin_rev.png")
+
+        try:
+            ax = sc.pl.rank_genes_groups_violin(adata, groups=reference_cluster, use_raw = False,
+                                                gene_symbols="gene_symbol", n_genes=n_genes, save="_comp_violin_rev.png")
+        except:
+            gene_names = adata.var.loc[adata.uns["rank_genes_groups"]['names'][reference_cluster]]["gene_symbol"][:n_genes].tolist()
+
+            ax = sc.pl.rank_genes_groups_violin(adata, groups=reference_cluster, use_raw = False,
+                                                gene_symbols="gene_symbol", gene_names=gene_names, save="_comp_violin_rev.png")
+
     if method == 'logreg':
         result['table_json_r'] = ''
     else:
         # Yuk.
         ensembl_id_list = np.concatenate(adata.uns['rank_genes_groups']['names'].tolist()).ravel().tolist()
+
+        # Copilot-proposed solution
+        #import itertools
+        #ensembl_id_list = list(itertools.chain.from_iterable(adata.uns['rank_genes_groups']['names'].tolist()))
 
         result['table_json_r'] = pd.DataFrame({
             'names': adata.var.loc[ensembl_id_list]['gene_symbol'].tolist(),
@@ -170,4 +195,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

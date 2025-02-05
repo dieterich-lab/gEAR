@@ -1,210 +1,532 @@
-// ! This code was for early prototyping and is no longer used
+'use strict';
 
-let SELECTED_PATTERN_LABEL = null;
+let urlParamsPassed = false;
+let isMulti = false;
+let tilegrid = null;
+let svgScoringMethod = 'gene';
+let projectionOpts = {patternSource: null, algorithm: null, gctype: null};
+let weightedGeneData = null;
+let datasetShareId = null;
+let layoutShareId = null;
 
-window.onload=() => {
-    $("#projection_source").on('change', () => {
-        $('#projectr_intro').hide();
-        source = $('#projection_source').val();
+// imported from pattern-collection-selector.js
+// selectedPattern = {shareId: null, label: null, gctype: null, selectedWeights: []};
 
-        if (source == 'dataset') {
-            $('#set_of_patterns_c').hide();
-            $('#dataset_id_c').show();
-            $('#target_dataset_id_c').show();
-        } else if (source == 'repository') {
-            $('#dataset_id_c').hide();
-            $('#target_dataset_id_c').hide();
-            $('#set_of_patterns_c').show();
-        } else {
-            $('#dataset_id_c').hide();
-            $('#target_dataset_id_c').hide();
-            $('#set_of_patterns_c').hide();
-        }
-    });
+// imported from dataset-collection-selector.js
+// selected_dc_share_id = null;
+// selected_dc_label = null;
 
-    $("#set_of_patterns").on('change', () => {
-        $.ajax({
-            type: "POST",
-            url: "./cgi/get_pattern_element_list.cgi",
-            data: {
-                'file_name': $('#set_of_patterns').val(),
-            },
-            dataType: "json",
-            success: (data) => {
-                const pattern_elements_tmpl = $.templates("#pattern_elements_tmpl");
-                const pattern_elements_html = pattern_elements_tmpl.render(data);
-                $("#projection_pattern_elements").html(pattern_elements_html);
-                $("#projection_pattern_elements_c").show();
-            },
-            error(xhr, status, msg) {
-                report_error(`Failed to load dataset list because msg: ${msg}`);
+/**
+ * Creates a proxy object for the selected pattern.
+ *
+ * @param {Object} selectedPattern - The selected pattern object.
+ * @returns {Proxy} - The proxy object for the selected pattern.
+ */
+const createSelectedPatternProxy = (selectedPattern) => {
+    return new Proxy(selectedPattern, {
+        set: (target, key, value) => {
+            target[key] = value;
+            const algorithmElt = document.getElementById('algorithm');
+
+            // NOTE: When checking keys, if multiple keys are set at once, the order of the if statements matters
+            // The Proxy keys are triggered in order they were set in the object.
+
+            if (key === "selectedWeights") {
+                enableAndShowElement(document.getElementById("single-multi-multi"), true);
+                if (!value.length) {
+                    // Reset button was hit
+                    enableAndShowElement(document.getElementById("single-multi-multi"), true);
+                } else if(value.length < 2) {
+                    disableAndHideElement(document.getElementById("single-multi-multi"), true);
+                    document.getElementById("single-multi-single").checked = true;
+                    isMulti = false;
+                }
+                // Enable or disable the "binary" option if all selectedWeights have "binary" property set to True
+                const binary = value.every((w) => w.binary);
+                algorithmElt.querySelector('option[value="binary"]').disabled  = !binary;
+
+            } else if (key === "gctype") {
+                // Adjust algorithm options based on gctype
+                algorithmElt.querySelector('option[value="nmf"]').disabled = false;
+                algorithmElt.querySelector('option[value="fixednmf"]').disabled = false;
+
+                if (value === "unweighted-list") {
+                    algorithmElt.querySelector('option[value="nmf"]').disabled = true;
+                    algorithmElt.querySelector('option[value="fixednmf"]').disabled = true;
+                }
             }
-        });
+            return true;
+        }
     });
+}
 
-    $("#target_dataset_id").on('change', () => {
-        $('#submitter_c').show();
-    });
+/**
+ * Handles the UI updates specific to the page login.
+ * @param {Event} event - The event object.
+ * @returns {Promise<void>} - A promise that resolves when the UI updates are completed.
+ */
+const handlePageSpecificLoginUIUpdates = async (event) => {
 
-    $(document).on('click', 'li.projection_pattern_element', function(e) {
-        // set only this one as active
-        $("li.projection_pattern_element").removeClass("active");
-        $(this).addClass("active");
+    // Set the page header title
+    document.getElementById('page-header-label').textContent = 'Projection Search';
+    datasetShareId = getUrlParameter('share_id');
+    layoutShareId = getUrlParameter('layout_id');
 
-        SELECTED_PATTERN_LABEL = $(this).data('label');
+    // There are some shorthand URL parameters (not on the shorthand URL) that need to be converted to the longform
+    rebindUrlParam("multi", "multipattern_plots");
+    rebindUrlParam("c", "projection_source");
+    rebindUrlParam("ptrns", "projection_patterns");
+    rebindUrlParam("algo", "projection_algorithm");
 
-        $("#target_dataset_id_c").show();
-        $("#projection_c").prop("disabled", false);
-        $("#projection_c").show();
-    });
+    selectedPattern = createSelectedPatternProxy(selectedPattern);
 
-    $(document).on('click', '#btn_project', async function(e) {
-        e.preventDefault();
-        $(this).attr("disabled", true);
-        const datasetId = $("#target_dataset_id").val();
-        const config = {
-            "scope":source
-            , "input_value": $('#set_of_patterns').val()
-            , "pattern_value": SELECTED_PATTERN_LABEL
+    // add event listener for when the submit-projection-search button is clicked
+    document.getElementById('submit-projection-search').addEventListener('click', async (event) => {
+
+        const currentTarget = event.currentTarget;
+        currentTarget.classList.add("is-loading");
+
+        const status = validateProjectionSearchForm();
+
+        if (! status) {
+            console.info("Aborting search");
+            event.currentTarget.classList.remove("is-loading");
+            return;
         }
 
-       /* const {default_display_id: defaultDisplayId} = await getDefaultDisplay(datasetId);
-        const display = await $.ajax({
-            url: './cgi/get_dataset_display.cgi',
-            type: 'POST',
-            data: { display_id: defaultDisplayId },
-            dataType: 'json'
-        });
+        document.getElementById("result-panel-initial-notification").classList.add('is-hidden');
+        document.getElementById("result-panel-loader").classList.remove('is-hidden');
 
-        plotConfig = display.plotly_config;
+        // update multi/single pattern
+        isMulti = document.getElementById('single-multi-multi').checked;
 
-        config.plot_config = plotConfig;
-        */
+        populatePatternResultsList();
 
-        const { data } = await runProjectR(datasetId, config);
-        $(this).attr("disabled", false);
-        drawChart(data, datasetId);
+        // if multi, clear the selected pattern symbol and hide the pattern-result-list container
+        document.getElementById("pattern-result-list-c").classList.remove('is-hidden');
+        document.getElementById("scoring-method-div").classList.remove('is-hidden');
+        if (isMulti) {
+            document.getElementById("pattern-result-list-c").classList.add('is-hidden');
+            document.getElementById("scoring-method-div").classList.add('is-hidden');
+        }
 
+        try {
+            const setupTileGridFn = (datasetShareId) ? setupTileGrid(datasetShareId, "dataset") : setupTileGrid(selected_dc_share_id);
+            tilegrid =  await setupTileGridFn;
+
+            // auto-select the first pattern in the list
+            const firstPattern = document.querySelector('.pattern-result-list-item');
+            if (!isMulti && firstPattern) {
+                firstPattern.click();
+            }
+
+        } catch (error) {
+            logErrorInConsole(error);
+            return;
+        } finally {
+            currentTarget.classList.remove("is-loading");
+            document.getElementById("result-panel-loader").classList.add('is-hidden');
+
+        }
+
+        const url = buildStateUrl();
+        // add to state history
+        history.pushState(null, '', url);
     });
 
-};
-
-// Call API to return plot JSON data
-async function runProjectR (datasetId, payload) {
+    // Wait until all pending API calls have completed before checking if we need to search
+    document.getElementById("submit-projection-search").classList.add("is-loading");
     try {
-        return await axios.post(`/api/projectr/${datasetId}`, {
-            ...payload
-        })
-    } catch (e) {
+        const pattern = getUrlParameter('projection_source', urlParams);
 
-        const message = "There was an error in making this projection. Please contact the gEAR team using the 'Contact' button at the top of the page and provide as much information as possible.";
-        const success = -1;
-        const data = {message, success};
-        return {data};
+        // SAdkins note - Promise.all fails fast,
+        // but Promise.allSettled waits until all resolve/reject and lets you know which ones failed
+        const [cartResult, dcResult,] = await Promise.all([
+            fetchPatternsData(pattern),
+            fetchDatasetCollections(layoutShareId),
+        ]);
+
+        parseDatasetCollectionURLParams();
+        await parsePatternCartURLParams();
+
+        // Should help with lining things up on index page
+        document.getElementById("dropdown-dc").classList.remove("is-right");
+
+    } catch (error) {
+        logErrorInConsole(error);
+    } finally {
+        document.getElementById("submit-projection-search").classList.remove("is-loading");
+    }
+
+    // Trigger the default dataset collection to be selected in the
+    if (datasetShareId) {
+        selectDatasetCollection(null);  // Clear the label
+        urlParamsPassed = true;
+    } else if (layoutShareId) {
+        selected_dc_share_id = layoutShareId;
+        selectDatasetCollection(layoutShareId);
+        urlParamsPassed = true;
+    } else if (CURRENT_USER.layout_share_id) {
+        selectDatasetCollection(CURRENT_USER.layout_share_id);
+    }
+
+    // Now, if URL params were passed and we have both patterns and a dataset collection,
+    //  run the search
+    if (urlParamsPassed) {
+
+        if ((datasetShareId || selected_dc_share_id) && selectedPattern.shareId !== null && selectedPattern.selectedWeights.length > 0) {
+            document.getElementById('submit-projection-search').click();
+        }
+    }
+
+    // Add mutation observer to watch if #dropdown-dc-selector-label changes
+    const observer = new MutationObserver((mutationsList, observer) => {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                // If the user selects a collection, clear the datasetShareId as scope has changed
+                datasetShareId = null;
+            }
+        }
+    });
+
+    observer.observe(document.getElementById("dropdown-dc-selector-label"), { childList: true });
+}
+
+/**
+ * Builds the state URL with the selected parameters.
+ * @returns {string} The state URL.
+ */
+const buildStateUrl = () => {
+
+    // Create a new URL object (with no search params)
+    const url = new URL('/projection.html', window.location.origin);
+
+    // Add the projection algorithm to the URL
+    const algorithm = document.getElementById('algorithm').value;
+    url.searchParams.set('projection_algorithm', algorithm);
+
+    // Add the multipattern_plots value to the URL
+    const multipatternPlots = document.getElementById('single-multi-multi').checked ? 1 : 0;
+    url.searchParams.set('multipattern_plots', multipatternPlots);
+
+    // Add the pattern source to the URL
+    url.searchParams.set('projection_source', selectedPattern.shareId);
+
+    // Add the dataset collection to the URL
+    if (datasetShareId) {
+        url.searchParams.append('share_id', datasetShareId);
+    } else if (selected_dc_share_id) {
+        url.searchParams.append('layout_id', selected_dc_share_id);
+    }
+
+    // Add the selected pattern weights to the URL
+    const weights = selectedPattern.selectedWeights.map((w) => w.label);
+    url.searchParams.set('projection_patterns', weights.join(','));
+
+    return url.toString();
+}
+
+/**
+ * Sorts an array of strings in ascending order based on the numeric value at the end of each string. (i.e. PC1, PC2, etc.)
+ *
+ * @param {string} a - The first string to compare.
+ * @param {string} b - The second string to compare.
+ * @returns {number} The difference between the numeric values at the end of the strings.
+ */
+const customNumericSort = (a, b) => {
+    // NOTE: Ignores the leading string altogether, so this still applies even if that is not consistent.
+    return (Number(a.match(/(\d+)$/g)[0]) - Number((b.match(/(\d+)$/g)[0])));
+}
+
+/**
+ * Populates the pattern results list with weights.
+ */
+const populatePatternResultsList = () => {
+    const template = document.getElementById('tmpl-pattern-result-item');
+    document.getElementById('pattern-result-list').innerHTML = '';
+
+    // sort the selectedWeights array based on the numeric value at the end of each string
+    // If this does not work, just sort alphabetically
+    let sortedLabels;
+    try {
+        sortedLabels = selectedPattern.selectedWeights.map((weight) => weight.label).sort(customNumericSort);
+    } catch (error) {
+        sortedLabels = selectedPattern.selectedWeights.map((weight) => weight.label).sort();
+    }
+
+    for (const label of sortedLabels) {
+        const row = template.content.cloneNode(true);
+        row.querySelector('li').innerHTML = label;
+        row.querySelector('li').dataset.weight = label;
+        document.getElementById('pattern-result-list').appendChild(row);
+
+        const thisRow = document.querySelector(`.pattern-result-list-item[data-weight="${label}"]`);
+        thisRow.addEventListener('click', (event) => {
+
+            // remove is-selected from all the existing rows, then add it to this one
+            const rows = document.getElementsByClassName('pattern-result-list-item');
+            for (const row of rows) {
+                row.classList.remove('is-selected');
+            }
+
+            event.currentTarget.classList.add('is-selected');
+            selectPatternWeightResult(label);
+        });
     }
 }
 
-// Draw plotly chart in HTML
-function drawChart (data, datasetId) {
-    const targetDiv = "projection_view";
-    const { plot_json: plotlyJson, plot_config: plotlyConfig, message, success } = data;
+/**
+ * Parses the URL parameters and updates the UI based on the values.
+ */
+const parsePatternCartURLParams = async () => {
 
-    // Since default plots are now added after dataset selection, wipe the plot when a new one needs to be drawn
-    $(`#${targetDiv}`).empty()
+    // if projection algorithm is passed, set it in #algorithm
+    const projectionAlgorithm = getUrlParameter('projection_algorithm', urlParams);
+    if (projectionAlgorithm) {
+        document.getElementById('algorithm').value = projectionAlgorithm;
+    }
 
-    const configMods = {
-        responsive: true
-    };
+    // single or multiple pattern view (convert to boolean)?
+    // NOTE: This will be adjusted if the pattern only has one weight
+    const isMultiParam = getUrlParameter('multipattern_plots', urlParams);
+    isMulti = isMultiParam === '1';
+    if (isMulti) {
+        document.getElementById('single-multi-multi').checked = true;
+    } else {
+        document.getElementById('single-multi-single').checked = true;
+    }
 
-    const config = {
-        ...plotlyConfig,
-        ...configMods
-    };
-    Plotly.newPlot(targetDiv, plotlyJson.data, plotlyJson.layout, config);
+    // handle passed pattern lists
+    const pattern = getUrlParameter('projection_source', urlParams);
+    if (!pattern) {
+        return;
+    }
+    urlParamsPassed = true;
+    const foundPattern = flatPatternsCartData.find((p) => p.share_id === pattern);
+    if (!foundPattern) {
+        console.warn(`Pattern ${pattern} not found in pattern cart data. Perhaps the user does not have access to it.`);
+        return;
+    }
+    selectedPattern = {shareId: foundPattern.share_id, label: foundPattern.label, gctype: foundPattern.gctype, selectedWeights: []};
+
+    // Update proxy so that multi-gene radio button can be enabled/disabled
+    selectedPattern = createSelectedPatternProxy(selectedPattern);
+
+    // we cannot the click event, since the pattern list items only render when an intiial category is selected
+    // so we need to manually populate the pattern weights
+    await populatePatternWeights();
+
+    // If no weights were passed, select the first weight for the pattern
+    const rows = document.getElementsByClassName('dropdown-weight-item');
+    const labels = Array.from(rows).map((row) => row.dataset.label);
+
+    // handle manually-entered pattern symbols
+    const urlWeights = getUrlParameter('projection_patterns', urlParams);
+    if (urlWeights) {
+        // Cannot have weights without a source pattern
+        const urlLabels = urlWeights.split(',');
+
+        const labelsToDeselect = labels.filter((label) => !urlLabels.includes(label));
+        // deselect all weights that are not in the urlWeights
+        selectPatternWeights(labelsToDeselect);
+    }
+
+    // click "proceed" button in pattern selector to update the UI
+    document.getElementById('dropdown-pattern-list-proceed').click();
 }
 
-function populate_dataset_selection() {
-    // NOTE: Called in common.js
-    $.ajax({
-        type: "POST",
-        url: "./cgi/get_h5ad_dataset_list.cgi",
-        data: {
-            'session_id': CURRENT_USER.session_id,
-            'for_page': 'projection',
-            'include_dataset_id': getUrlParameter('dataset_id')
-        },
-        dataType: "json",
-        success: (data) => {
-            if (data['user']['datasets'].length > 0) {
-                const user_dataset_list_tmpl = $.templates("#dataset_list_tmpl");
-                const user_dataset_list_html = user_dataset_list_tmpl.render(data['user']['datasets']);
-                $("#dataset_ids_user").html(user_dataset_list_html);
-                $("#target_dataset_ids_user").html(user_dataset_list_html);
-            }
+/**
+ * Parses the URL parameters to extract the dataset collection information.
+ * @returns {Promise<void>} A promise that resolves once the dataset collection information is parsed.
+ */
+const parseDatasetCollectionURLParams = () => {
+    // handle passed dataset collection
+    const layoutShareId = getUrlParameter('layout_id');
 
-            if (data['shared_with_user']['datasets'].length > 0) {
-                const shared_with_user_dataset_list_tmpl = $.templates("#dataset_list_tmpl");
-                const shared_with_user_dataset_list_html = shared_with_user_dataset_list_tmpl.render(data['shared_with_user']['datasets']);
-                $("#dataset_ids_shared_with_user").html(shared_with_user_dataset_list_html);
-                $("#target_dataset_ids_shared_with_user").html(shared_with_user_dataset_list_html);
-            }
+    if (!layoutShareId) {
+        return;
+    }
 
-            if (data['public']['datasets'].length > 0) {
-                const public_dataset_list_tmpl = $.templates("#dataset_list_tmpl");
-                const public_dataset_list_html = public_dataset_list_tmpl.render(data['public']['datasets']);
-                $("#dataset_ids_public").html(public_dataset_list_html);
-                $("#target_dataset_ids_public").html(public_dataset_list_html);
-            }
-
-            // was there a requested dataset ID already?
-            const dataset_id = getUrlParameter('dataset_id');
-
-            if (dataset_id !== undefined) {
-                $('#dataset_id').val(dataset_id);
-                $( "#dataset_id" ).trigger( "change" );
-            }
-        },
-        error(xhr, status, msg) {
-            report_error(`Failed to load dataset list because msg: ${msg}`);
-        }
-    });
+    selected_dc_share_id = layoutShareId;
+    selected_dc_label = dataset_collection_label_index[layoutShareId];
+    document.querySelector('#dropdown-dc-selector-label').innerHTML = selected_dc_label;
 }
 
-function populate_pattern_selection() {
-    // NOTE: Called in common.js
-    $.ajax({
-        type: "POST",
-        url: "./cgi/get_projection_pattern_list.cgi",
-        data: {
-            'session_id': CURRENT_USER.session_id,
-        },
-        dataType: "json",
-        success: (data) => {
-            const pattern_list_tmpl = $.templates("#dataset_list_tmpl");    // recycling the template... same output
-            const pattern_list_html = pattern_list_tmpl.render(data);
-            $("#set_of_patterns").html(pattern_list_html);
-        },
-        error(xhr, status, msg) {
-            report_error(`Failed to load dataset list because msg: ${msg}`);
-        }
-    });
-}
+/**
+ * Selects a pattern weight and performs various actions based on the selected weight.
+ * @param {string} label - The selected weight label.
+ */
+const selectPatternWeightResult = async (label) => {
 
-function getDefaultDisplay (datasetId) {
-    return $.ajax({
-        url: './cgi/get_default_display.cgi',
-        type: 'POST',
-        data: {
-            user_id: CURRENT_USER.id,
-            dataset_id: datasetId,
-            is_multigene: 0 //TODO: Change
-        },
-        dataType: 'json'
-    });
-}
+    // get the selected pattern object
+    const obj = selectedPattern.selectedWeights.find((w) => w.label === label);
 
-function report_error(msg) {
-    if (msg) {
-        $(`<li class='failure'>${msg}</li>`).prependTo("#action_log");
+    // if projection algorithm is "nmf", then hide the top_down genes
+    const projectionAlgorithm = document.getElementById('algorithm').value;
+
+    const topDownGenesElement = document.getElementById('top-down-genes');
+
+    // Hide the element initially
+    topDownGenesElement.classList.add('is-hidden');
+
+    if (projectionAlgorithm === 'nmf') {
+        // No additional action needed as the element is already hidden
+    } else if (obj.top_down) {
+        // Show the element if 'top_down' property is true
+        topDownGenesElement.classList.remove('is-hidden');
+    }
+
+    // if isMulti=false, show top_up and top_down genes
+    document.getElementById("top-genes-c").classList.remove('is-hidden');
+    if (isMulti || selectedPattern.gctype === "unweighted-list") {
+        document.getElementById("top-genes-c").classList.add('is-hidden');
+    }
+
+    // clear the top-up and top-down genes
+    document.querySelector("#top-up-genes p").textContent = '';
+    document.querySelector("#top-down-genes p").textContent = '';
+
+    // populate top-up and top-down with the array of genes for that weight
+    if (obj.top_up) {
+        // format to add a space after each comma
+        const topUp = obj.top_up.split(',').join(', ');
+        document.querySelector("#top-up-genes p").textContent = topUp;
+    }
+    if (obj.top_down) {
+        const topDown = obj.top_down.split(',').join(', ');
+        document.querySelector("#top-down-genes p").textContent = topDown;
+    }
+
+    document.getElementById("btn-view-weighted-genes").classList.remove("is-hidden");
+    try {
+        const data = await apiCallsMixin.fetchPatternWeightedGenes(selectedPattern.shareId, label);
+        weightedGeneData = data;
+    } catch (error) {
+        logErrorInConsole(error);
+        document.getElementById("btn-view-weighted-genes").classList.add("is-hidden");
+    }
+
+    // Other things can be called next, such as plotting calls
+    if (tilegrid) {
+        // Revert back to "#result-panel-grid" display before rendering the new gene displays
+        document.getElementById("result-panel-grid").classList.remove("is-hidden");
+        document.getElementById("zoomed-panel-grid").classList.add("is-hidden");
+        tilegrid.renderDisplays(label, isMulti, svgScoringMethod, projectionOpts);
     }
 }
+
+
+/**
+ * Sets up the tile grid for a given shareId and type.
+ *
+ * @param {string} shareId - The shareId to set up the tile grid for.
+ * @param {string} [type="layout"] - The type of the tile grid. Defaults to "layout".
+ * @returns {Promise<TileGrid>} - A promise that resolves to the initialized TileGrid object.
+ */
+const setupTileGrid = async (shareId, type="layout") => {
+
+    // Cannot proceed without a shareId
+    if (!shareId) {
+        return;
+    }
+
+    const tilegrid = new TileGrid(shareId, type, "#result-panel-grid");
+    try {
+        tilegrid.datasets = await tilegrid.getDatasets();
+        tilegrid.layout = await tilegrid.getLayout();
+        await tilegrid.addAllDisplays();
+
+        tilegrid.applyTileGrid(isMulti);
+
+        const algorithm = document.getElementById('algorithm').value;
+
+        // create projectionOpts object out of selectedPattern.shareId, algorithm, and selectedPattern.gctype
+        projectionOpts = {
+            patternSource: selectedPattern.shareId,
+            algorithm,
+            gctype: selectedPattern.gctype
+        };
+
+        for (const tile of tilegrid.tiles) {
+            tile.enableProjectR();
+        }
+
+        // NOTE - the tilegrid.renderDisplays() call below can check and use the first array element of the selected_genes array if single_pattern
+        // We do not render for single-gene searches because the first pattern result is "clicked" and the tilegrid is rendered in the event listener.
+
+        if (isMulti && selectedPattern.selectedWeights.length) {
+            // create array of selected weight labels
+            const selectedWeights = Array.from(selectedPattern.selectedWeights).map((w) => w.label);
+            await tilegrid.renderDisplays(selectedWeights, isMulti, svgScoringMethod, projectionOpts);
+        }
+    } catch (error) {
+        logErrorInConsole(error);
+    } finally {
+        return tilegrid;
+    }
+}
+
+/**
+ * Validates the projection search form.
+ *
+ * @returns {boolean} Returns true if the form is valid, otherwise false.
+ */
+const validateProjectionSearchForm = () => {
+
+    // User passed in a single dataset share ID.
+    if (datasetShareId) {
+        return true;
+    }
+
+    // User must have either selected a pattern list or entered patterns manually. Either of these
+    // will populate the selected_patterns array
+    document.querySelector('#dropdown-pattern-lists button').classList.remove('is-danger');
+    if (selectedPattern.shareId === null) {
+        createToast('Please enter at least one pattern source to proceed');
+        document.querySelector('#dropdown-pattern-lists button').classList.add('is-danger');
+        return false;
+    }
+
+    // Check if the user has selected any dataset collections
+    document.querySelector('#dropdown-dc button').classList.remove('is-danger');
+    if (!selected_dc_share_id) {
+        createToast('Please select at least one dataset to proceed');
+        document.querySelector('#dropdown-dc button').classList.add('is-danger');
+        return false;
+    }
+
+    // If multi, check that at least two weights are selected
+    if (document.getElementById('single-multi-multi').checked && selectedPattern.selectedWeights.length < 2) {
+        createToast('Please select at least two patterns to proceed');
+        return false;
+    }
+
+    return true;
+}
+
+document.getElementById('btn-view-weighted-genes').addEventListener('click', (event) => {
+    let htmlStream = "<table>";
+    // Gather genes and weights and show in new page
+    for (const row of weightedGeneData) {
+        htmlStream += `<tr><td>${row["gene"]}</td><td>${row["weight"]}</td></tr>`;
+    }
+    htmlStream += "</table>"
+    const tab = window.open('about:blank', '_blank');
+    tab.document.write(htmlStream);
+    tab.document.close();
+});
+
+// Change the svg scoring method when select element is changed
+document.getElementById('svg-scoring-method').addEventListener('change', (event) => {
+    if (isMulti) return;   // multi does not use this
+
+    svgScoringMethod = event.target.value;
+    // Get pattern symbol from currently selected list item
+    let listItem = document.querySelector('.pattern-result-list-item.is-selected');
+    if (!listItem) {
+        listItem = document.querySelector('.pattern-result-list-item');
+    }
+
+    const pattern = listItem.textContent;
+    selectPatternWeightResult(pattern);
+});

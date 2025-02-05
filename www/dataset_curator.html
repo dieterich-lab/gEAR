@@ -2,121 +2,445 @@
 <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
 <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
 <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
-<!--[if gt IE 8]><!-->
-<html>
-<!--<![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>gEAR dataset curator page</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta http-equiv="Expires" content="-1">
+        <meta http-equiv="CACHE-CONTROL" content="NO-CACHE">
 
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-  <title>Dataset curator</title>
-  <meta name="description" content="">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <link
-  rel="stylesheet"
-  href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
-  integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
-  crossorigin="anonymous"
-  />
-  <!-- Load required Bootstrap and BootstrapVue CSS (plus updated version in comments) -->
-  <!--<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">-->
+        <!-- This is needed because mod_rewrite doesn't work well with relative paths.  This will need
+             to be changed for any hosts where gEAR is not at the webserver root.
+          -->
+        <base href="/" />
 
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"/>
-  <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
-  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+        <link rel="stylesheet" href="css/gear-theme-purple.css" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" />
 
-  <link type="text/css" rel="stylesheet" href="//unpkg.com/bootstrap-vue@2.21.2/dist/bootstrap-vue.min.css" />
+        <!-- Autocomplete -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tarekraafat/autocomplete.js@10.2.7/dist/css/autoComplete.02.min.css">
 
-  <!-- Ensures we always get a new version (during our current active development cycles) -->
-  <script>document.write('<link rel="stylesheet" href="css/common.' + (new Date()).getTime() + '.css" />');</script>
-  <script>document.write('<link rel="stylesheet" href="css/dataset_curator.' + (new Date()).getTime() + '.css" />');</script>
+        <!-- Fancy animation effects -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
 
+        <!-- Fancy select elements -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nice-select2@2.1.0/dist/css/nice-select2.min.css">
 
-  <link rel="stylesheet" href="css/vendor/jquery.toggles.css" type="text/css" />
-  <link rel="stylesheet" href="css/vendor/jquery.toggles-modern.css" type="text/css" />
+        <!-- Tree view/grid -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.0/font/bootstrap-icons.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mar10/wunderbaum@v0.10.0/dist/wunderbaum.css">
 
-  <link href="https://unpkg.com/vue-bootstrap-typeahead/dist/VueBootstrapTypeahead.css" rel="stylesheet">
+        <!-- Ensures we always get a new version (during our current active development cycles) -->
+        <script>document.write('<link rel="stylesheet" href="css/common.v2.' + (new Date()).getTime() + '.css" />');</script>
 
-  <script src="js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
-</head>
+        <!-- Common functions for curator pages -->
+        <script>document.write('<link rel="stylesheet" href="css/curator_common.' + (new Date()).getTime() + '.css" />');</script>
+
+        <!--Page-specific CSS here -->
+            <script>document.write('<link rel="stylesheet" href="css/dataset_curator.' + (new Date()).getTime() + '.css" />');</script>
+    </head>
 
 <body>
   <!--[if lt IE 7]>
       <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
   <![endif]-->
-  <div id="navigation_bar">
-  <!-- content here inserted via JQuery -->
-  </div> <!-- end navigation_bar -->
-  <div class="col-12 alert-container">
-  <!-- CONTAINER FOR ALERTS - INSERTED BY JQUERY -->
+
+  <div id="main-layout-c" class="columns is-fullheight">
+    <!--#include virtual="/include/primary_nav.html" -->
+    <section id="main-c" class="column pl-0 pt-0">
+      <!--#include virtual="/include/header_bar.html" -->
+      <section id="content-c" class="m-3" data-nav-link="sg_curator">
+        <!-- This is the section to be populated for new pages -->
+        <header class="columns section">
+          <div id="tool-desc-c" class="column is-3">
+          <h3 class="title is-3">
+            Curate new single-gene displays for a dataset
+          </h3>
+          <p>The dataset curator tool is used to create new single-gene expression displays, as well as editing existing ones. You can choose from variety of plots, such as scatter, violin, and bar plots.</p>
+          </div>
+          <div id="guides-outer-c" class="column is-offset-3 has-background-white-bis notification">
+            <h3 class="mt-4 mb-4">
+              <span>GUIDES</span>
+              <span class="icon is-pulled-right delete">
+                <i class="mdi mdi-close"></i>
+              </span>
+            </h3>
+            <div id="guides-inner-c" class="columns">
+              <div class="column">
+                <div class="guide-element pr-3">
+                  <div><!-- without the 2nd level div here the images disappears-->
+                    <div class="media">
+                      <div class="media-left">
+                        <figure class="image is-96x96">
+                          <img src="/img/guide_image_mag_dna.png" alt="Placeholder image">
+                        </figure>
+                      </div>
+                      <div class="media-content is-size-7 has-text-weight-semibold">
+                        <p>
+                          Learn how to use the dataset curation tool
+                        </p>
+                        <p class="mt-2"><a class="is-unselectable">Try now (coming soon)</a></p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="has-background-light section js-step step-active" id="dataset-s">
+          <!-- Dataset selection -->
+          <h5 class="title is-5">
+            <span class="icon">
+              <i class="mdi mdi-text-box-search-outline"></i> <!-- Not quite the correct icon -->
+            </span>
+            <span>Select a dataset</span>
+            <span id="dataset-s-success" class="js-step-success icon has-text-success-dark is-hidden">
+              <i class="mdi mdi-check-circle"></i>
+            </span>
+            <span id="dataset-s-failed" class="js-step-success icon has-text-danger-dark is-hidden">
+              <i class="mdi mdi-close-circle"></i>
+            </span>
+            <span class="icon is-pulled-right">
+              <i class="mdi mdi-chevron-up"></i>
+            </span>
+          </h5>
+          <div id="current-dataset-c" class="is-hidden">
+            Current dataset:
+            <span id="current-dataset"></span>
+          </div>
+          <div class="js-step-collapsable mt-3" id="dataset-collapsable">
+            <input class="input" id="dataset-query" type="text" placeholder="Enter a dataset" autofocus="" />
+            <div id="dataset-tree" class="wb-skeleton wb-initializing js-tree">
+            </div>
+          </div>
+        </section>
+
+        <section class="has-background-white-bis section js-step" id="load-plot-s">
+          <h5 class="title is-5">
+            <span class="icon">
+              <i class="mdi mdi-file-upload-outline"></i> <!-- Not quite the correct icon -->
+            </span>
+            <span>Create new or load existing curation</span>
+            <span id="load-plot-s-success" class="js-step-success icon has-text-success-dark is-hidden">
+              <i class="mdi mdi-check-circle"></i>
+            </span>
+            <span id="load-plot-s-failed" class="js-step-success icon has-text-danger-dark is-hidden">
+              <i class="mdi mdi-close-circle"></i>
+            </span>
+            <span class="icon is-pulled-right">
+              <i class="mdi mdi-chevron-down"></i>
+            </span>
+          </h5>
+          <div class="js-step-collapsable mt-3" id="load-plot-collapsable">
+            <button id="new-display" class="content button is-primary" disabled>
+              <span class="icon">
+                <i class="mdi mdi-plus"></i>
+              </span>
+              <span>Curate new display</span>
+            </button>
+            <div id="user-displays" class="columns is-multiline"></div>
+            <div id="owner-displays" class="columns is-multiline"></div>
+
+          </div>
+        </section>
+
+        <section class="has-background-white-bis section js-step" id="plot-type-s">
+          <h5 class="title is-5">
+            <span class="icon">
+              <i class="mdi mdi-chart-scatter-plot"></i> <!-- Not quite the correct icon -->
+            </span>
+            <span>Select dataset plot type and analysis type</span>
+            <span id="plot-type-s-success" class="js-step-success icon has-text-success-dark is-hidden">
+              <i class="mdi mdi-check-circle"></i>
+            </span>
+            <span id="plot-type-s-failed" class="js-step-success icon has-text-danger-dark is-hidden">
+              <i class="mdi mdi-close-circle"></i>
+            </span>
+            <span class="icon is-pulled-right">
+              <i class="mdi mdi-chevron-down"></i>
+            </span>
+          </h5>
+          <div id="current-plot-type-c" class="is-hidden">
+            Current plot type:
+            <span id="current-plot-type"></span>
+          </div>
+          <div id="current-analysis-c">
+            Current analysis:
+            <span id="current-analysis">Primary analysis</span>
+          </div>
+          <div class="js-step-collapsable mt-3" id="plot-type-collapsable">
+            <div class="columns">
+              <div id="plot-type-select-c" class="column is-4">
+                <div>Plot type
+                  <span id="plot-type-select-c-success" class="js-step-success icon has-text-success-dark is-hidden">
+                    <i class="mdi mdi-check-circle"></i>
+                  </span>
+                  <span id="plot-type-select-c-failed" class="js-step-success icon has-text-danger-dark is-hidden">
+                    <i class="mdi mdi-close-circle"></i>
+                  </span>
+                  <span class="has-text-success-dark is-pulled-right has-text-weight-bold">Required</span>
+                </div>
+                <div class="select is-fullwidth">
+                  <select id="plot-type-select" disabled>
+                    <option value="nope">Select plot type</option>
+                    <optgroup label="Interactive">
+                      <option value="bar" id="bar-opt">Bar</option>
+                      <option value="line" id="line-opt">Line</option>
+                      <option value="scatter" id="scatter-opt">Scatter</option>
+                      <option value="violin" id="violin-opt">Violin</option>
+                      <option value="tsne_dyna" id="tsne-dyna-opt">tSNE/UMAP dynamic</option>
+                      <option value="svg" id="svg-opt">SVG image</option>
+                    </optgroup>
+                    <optgroup label="Non-interactive">
+                      <option value="pca_static" id="pca-static-opt">PCA static</option>
+                      <option value="tsne_static" id="tsne-static-opt">tSNE static</option>
+                      <option value="umap_static" id="umap-static-opt">UMAP static</option>
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+              <div id="analysis-type-select-c" class="column is-4">
+                <div>Analysis (optional)
+                  <span id="analysis-type-select-c-success" class="js-step-success icon has-text-success-dark is-hidden">
+                    <i class="mdi mdi-check-circle"></i>
+                  </span>
+                  <span id="analysis-type-select-c-failed" class="js-step-success icon has-text-danger-dark is-hidden">
+                    <i class="mdi mdi-close-circle"></i>
+                  </span>
+                </div>
+                <div class="select is-fullwidth">
+                  <select id="analysis-select" disabled>
+                    <option value="-1" selected>Primary analysis (default)</option>
+                    <optgroup id="private-analyses" label="Your Saved Analyses">
+
+                    </optgroup>
+                    <optgroup id="public-analyses" label="Public Saved Analyses">
+
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="has-background-white-bis section js-step" id="gene-s">
+          <h5 class="title is-5">
+            <span class="icon">
+              <i class="mdi mdi-dna"></i> <!-- Not quite the correct icon -->
+            </span>
+            <span>Select gene</span>
+            <span id="gene-s-success" class="js-step-success icon has-text-success-dark is-hidden">
+              <i class="mdi mdi-check-circle"></i>
+            </span>
+            <span id="gene-s-failed" class="js-step-success icon has-text-danger-dark is-hidden">
+              <i class="mdi mdi-close-circle"></i>
+            </span>
+            <span class="icon is-pulled-right">
+              <i class="mdi mdi-chevron-down"></i>
+            </span>
+          </h5>
+          <div id="current-gene-c" class="is-hidden">
+            Current gene:
+            <span id="current-gene"></span>
+          </div>
+          <div class="js-step-collapsable mt-3" id="gene-collapsable">
+            <div class="columns">
+              <div id="gene-select-c" class="column is-5">
+                <input class="input js-autocomplete" id="gene-autocomplete" type="text" placeholder="Enter a gene" autofocus="" />
+                <span class="has-text-success-dark has-text-weight-bold">Required</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="has-background-white-bis section js-step" id="plot-options-s">
+          <h5 class="title is-5">
+            <span class="icon">
+              <i class="mdi mdi-tune"></i> <!-- Not quite the correct icon -->
+            </span>
+            <span>Select plotting options</span>
+            <span id="plot-options-s-success" class="js-step-success icon has-text-success-dark is-hidden">
+              <i class="mdi mdi-check-circle"></i>
+            </span>
+            <span id="plot-options-s-failed" class="js-step-success icon has-text-danger-dark is-hidden">
+              <i class="mdi mdi-close-circle"></i>
+            </span>
+            <span class="icon is-pulled-right">
+              <i class="mdi mdi-chevron-down"></i>
+            </span>
+          </h5>
+          <div class="js-step-collapsable mt-3" id="plot-options-collapsable"></div>
+        </section>
+
+        <button id="plot-btn" class="my-3 button is-primary js-plot-btn" disabled>Plot</button>
+
+      </section>
+      <section id="post-plot-content-c" class="m-3 columns is-hidden">
+        <div id="params-summary" class="column has-background-light is-flex is-flex-direction-column">
+          <div class="is-flex is-flex-direction-column">
+            <div id="current-info" class="content">
+              <p>Dataset: <span id="current-dataset-post" class="has-text-weight-semibold"></span></p>
+              <p>Analysis: <span id="current-analysis-post" class="has-text-weight-semibold">Primary analysis</span></p>
+              <p>Number of selected observations: <span id="num-selected" class="has-text-weight-semibold"></span></p>
+              <p>Gene: <span id="current-gene-post" class="has-text-weight-semibold"></span></p>
+            </div>
+            <div id="post-plot-customize">
+              <div id="facet-content" class="content is-hidden">
+                <h5 class="title is-5 is-clickable js-collapsable-trigger">
+                  <span>Dataset filters</span>
+                  <span class="icon is-pulled-right">
+                    <i class="mdi mdi-chevron-down"></i>
+                  </span>
+                </h5>
+                <div id="facet-c" class="is-hidden js-collapsable-content"></div>
+              </div>
+              <section id="params-config-container">
+                <h5 class="title is-5 is-clickable js-collapsable-trigger">
+                  <span>Plot configuration</span>
+                  <span class="icon is-pulled-right">
+                    <i class="mdi mdi-chevron-down"></i>
+                  </span>
+                </h5>
+                <div id="post-plot-configuration-c" class="is-hidden js-collapsable-content">
+                  <div class="field">
+                    <label class="label has-text-weight-medium">Change gene</label>
+                    <div class="control">
+                      <input class="input js-autocomplete" id="gene-autocomplete-post" type="text" placeholder="Enter a gene" autofocus="" />
+                    </div>
+                  </div>
+                  <section id="post-plot-adjustments" class="content"></section>
+                </div>
+              </section>
+
+              <section id="order-and-colors">
+                <section id="order-section" class="my-3 is-hidden">
+                  <h5 class="title is-5 is-clickable js-collapsable-trigger">
+                    <span>Change sort order</span>
+                    <span class="icon is-pulled-right">
+                      <i class="mdi mdi-chevron-down"></i>
+                    </span>
+                  </h5>
+                  <div class="is-hidden js-collapsable-content">
+                    <p class="help">Drag-and-drop to determine order of plotting</p>
+                    <div id="order-container" class="container"></div>
+                  </div>
+                </section>
+                <section id="colors-section" class="my-3 is-hidden">
+                  <h5 class="title is-5 is-clickable js-collapsable-trigger">
+                    <span>Change colors</span>
+                    <span class="icon is-pulled-right">
+                      <i class="mdi mdi-chevron-down"></i>
+                    </span>
+                  </h5>
+                  <div id="colors-container" class="container is-hidden js-collapsable-content"></div>
+                </section>
+              </section>
+            </div>
+          </div>
+          <div id="post-plot-actions-container" class="mt-3 columns is-multiline is-flex-grow-1 is-align-content-end">
+            <div class="column is-full">
+              <button id="update-plot" class="button is-medium is-responsive is-fullwidth is-primary js-plot-btn" disabled>Update Plot</button>
+              <button id="edit-params" class="button is-responsive is-fullwidth">
+                <span class="icon is-pulled-left">
+                  <i class="mdi mdi-arrow-left-thick"></i>
+                </span>
+                <span>Go Back</span>
+              </button>
+            </div>
+            <div id="save-display-container" class="column is-full">
+              <div class="field">
+                <div class="control">
+                  <input id="new-display-label" class="input" type="text" placeholder="Enter name of display" />
+                </div>
+              </div>
+              <div class="field">
+                <div class="control">
+                  <label class="checkbox" disabled>
+                    <input type="checkbox" id="overwrite-display-check" disabled>
+                    Overwrite existing display instead
+                  </label>
+                </div>
+              </div>
+              <div class="field">
+                <div class="control">
+                  <label class="checkbox">
+                    <input type="checkbox" id="make-default-display-check">
+                    Make this my default display
+                  </label>
+                </div>
+              </div>
+              <div class="field">
+                <div class="control">
+                  <button id="save-display-btn" class="button is-responsive is-fullwidth my-3">Save as new display</button>
+                </div>
+              </div>
+              <div class="field">
+                <div class="control">
+                  <button id="save-json-config" class="button is-responsive is-fullwidth ">Download config (JSON)</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="column is-two-thirds has-background-white-bis">
+          <div class="box" id="selected-facets">
+            <p> Selected conditions:
+                <span class="loader is-hidden is-inline-flex" id="selected-facets-loader"></span>
+            </p>
+            <span class="tag is-light is-primary" id="selected-facets-all">All</span>
+            <span class="tags" id="selected-facets-tags"></span>
+          </div>
+          <div id="plot-container" class="content"></div>
+        </div>
+      </section>
+    </section>
   </div>
 
-  <div id="login_checking">
-  <div class="col-12">
-  <h2><img id="checking_indicator" src="img/loading_search.gif" alt="checking">Checking login status</h2>
-  </div>
-  </div>
-
-  <div id="login_warning">
-  <div class="col-12">
-  <h2>Login required</h2>
-  <p>
-      You must be logged in to view a user profile.  Please use the login form in the top-right.
-  </p>
-  </div>
-  </div>
-
-  <div id="app">
-    <div v-if='user' class="container-fluid" id="main_content">
-      <transition name="fade" mode="out-in">
-        <router-view></router-view>
-      </transition>
-    </div>  <!-- /main_content -->
-  </div>  <!-- /app -->
-
-  <script src="https://cdn.jsdelivr.net/npm/es6-promise@4/dist/es6-promise.auto.js"></script>
+    <!--#include virtual="/include/curator_common.html" -->
 
 
-  <!-- Production -->
-  <!--<script src="https://cdn.jsdelivr.net/npm/vue"></script>-->
-  <!-- Development -->
-  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
-  <script src="https://unpkg.com/vuex@3"></script>
-  <script src="https://unpkg.com/vue-router@3"></script>
+  <!-- autocomplete -->
+  <script src="https://cdn.jsdelivr.net/npm/@tarekraafat/autocomplete.js@10.2.7/dist/autoComplete.min.js"></script>
 
-  <script src="//cdn.jsdelivr.net/npm/sortablejs@1.8.4/Sortable.min.js"></script>
-  <script src="//cdnjs.cloudflare.com/ajax/libs/Vue.Draggable/2.20.0/vuedraggable.umd.min.js"></script>
+  <!-- fancy select elements -->
+  <script src="https://cdn.jsdelivr.net/npm/nice-select2@2.1.0/dist/js/nice-select2.min.js"></script>
 
-  <script src="//unpkg.com/babel-polyfill@latest/dist/polyfill.min.js"></script>
-  <!-- Bootstrap-Vue & Icons -->
-  <script src="//unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.js"></script>
-  <script src="//unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue-icons.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vee-validate@3.3.9/dist/vee-validate.full.min.js"></script> <!-- Vue-based validation -->
-  <script src="https://unpkg.com/vue-bootstrap-typeahead"></script>
-  <script src="js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
+  <!-- Tree view/grid -->
+  <script src="https://cdn.jsdelivr.net/gh/mar10/wunderbaum@v0.10.0/dist/wunderbaum.umd.min.js"></script>
+
+  <!-- sortable + drag-n-drop -->
+  <script src="https://cdn.jsdelivr.net/npm/html5sortable@0.13.3/dist/html5sortable.min.js"></script>
+
   <!-- Promise based HTTP client for the browser  -->
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-
-  <!-- JS, Popper.js, and jQuery for Bootstrap (new untested versions in comments)-->
-  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
-  <!--<script src="http://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>-->
-  <!--<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>-->
-  <!--<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>-->
-
-  <script src="https://cdn.plot.ly/plotly-1.54.1.min.js"></script>
-  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
 
   <script src="js/vendor/js.cookie.js"></script>
   <script src="js/vendor/snap.svg-min.js"></script>
   <script src="https://d3js.org/d3.v5.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.26.0.min.js" charset="utf-8"></script>
 
   <!-- Helps ensure the user gets the latest code, needed while we're pushing out so many updates -->
-    <script>document.write('<script src="js/classes/user.' + (new Date()).getTime() + '.js"><\/script>');</script>
-    <script>document.write('<script src="js/common.' + (new Date()).getTime() + '.js"><\/script>');</script>
-    <script>document.write('<script src="js/dataset_curator.' + (new Date()).getTime() + '.js"><\/script>');</script>
-    <script>document.write('<script src="js/plot_display_config.' + (new Date()).getTime() + '.js"><\/script>');</script>
+  <script>document.write('<script src="js/classes/facets.' + (new Date()).getTime() + '.js"><\/script>');</script>
+  <script>document.write('<script src="js/classes/tree.' + (new Date()).getTime() + '.js"><\/script>');</script>
+  <script>document.write('<script src="js/classes/user.v2.' + (new Date()).getTime() + '.js"><\/script>');</script>
+  <script>document.write('<script src="js/plot_display_config.' + (new Date()).getTime() + '.js"><\/script>');</script>
+
+  <!-- Helps ensure the user gets the latest code, needed while we're pushing out so many updates -->
+  <script>document.write('<script src="js/common.v2.' + (new Date()).getTime() + '.js"><\/script>');</script>
+
+  <!-- Common functions for curator pages -->
+  <script>document.write('<script src="js/curator_common.' + (new Date()).getTime() + '.js"><\/script>');</script>
+
+  <!-- Page-specific JS file here -->
+  <script>document.write('<script src="js/dataset_curator.' + (new Date()).getTime() + '.js"><\/script>');</script>
+
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-59916932-1"></script>

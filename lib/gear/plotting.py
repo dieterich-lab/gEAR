@@ -1,9 +1,7 @@
-# Purely kept so we can debug with sys.stderr
 from itertools import cycle
 
 import plotly.express as px
 import plotly.graph_objects as go
-from matplotlib.pyplot import plot
 from plotly import exceptions
 from plotly.colors import unlabel_rgb
 from plotly.subplots import make_subplots
@@ -121,6 +119,35 @@ def _adjust_colorscale(plotting_args, colormap=None, palette=None):
         # Palette selection supercedes "purples"
         if palette:
             plotting_args["color_continuous_scale"] = palette
+            if palette == "multicolor_diverging":
+                # This is a custom colorscale for diverging data (for Carlo)
+
+                #     nodes = [0.0, 0.12, 0.25, 0.38, 0.5, 0.62, 0.75, 0.88, 1.0]
+                #     colors = ["violet", "blue", "indigo", "darkblue", "black", "darkred", "red", "orange", "yellow"]
+
+                # Hex codes are based on Matplotlib values -> https://i.stack.imgur.com/nCk6u.jpg
+                plotting_args["color_continuous_scale"] = [
+                    [0.0, '#9a0eea'],
+                    [0.12, '#0343df'],
+                    [0.25, '#380282'],
+                    [0.38, '#00035b'],
+                    [0.5, '#000000'],
+                    [0.62, '#840000'],
+                    [0.75, '#e50000)'],
+                    [0.88, '#f97306'],
+                    [1.0, '#ffff14']
+                ]
+
+            elif palette == "bublrd":
+                plotting_args["color_continuous_scale"] = [
+                    [0, 'rgb(173, 216, 230)'],
+                    [0.25, 'rgb(0, 0, 128)'],
+                    [0.4, 'rgb(0, 0, 255)'],
+                    [0.5, 'rgb(0, 0, 0)'],
+                    [0.6, 'rgb(128, 0, 0)'],
+                    [0.75, 'rgb(255, 0, 0)'],
+                    [1, 'rgb(240, 128, 128)']
+                ]
 
     return plotting_args
 
@@ -133,7 +160,8 @@ def _aggregate_dataframe(df, x, y, facet_row=None, facet_col=None, color_name=No
     if not priority_groups:
         return df
 
-    grouped = df.groupby(priority_groups)
+    # If observed=False, then all groupings will be present in the final dataframe
+    grouped = df.groupby(priority_groups, observed=False)
 
     # Discrete colorscale or no colorscale
     if not color_name or _is_categorical(df[color_name]):
@@ -185,7 +213,7 @@ def _determine_annotation_shift(ds):
         longest_entry = len(max(ds_list, key = len))
         return -(longest_entry * 3 + 30)
     else:
-        return -50
+        return -30
 
 def _invalid_plot_type(plot_type):
     """Check for invalid plot types."""
@@ -226,29 +254,36 @@ def _truncate_ticktext(group_list):
 def _update_axis_titles(fig, df, x, y, facet_col=None, facet_row=None, x_title=None, y_title=None):
     """Update axis titles.  Edits "fig" inplace."""
 
-    # Annotation defaults based on https://community.plotly.com/t/subplots-how-to-add-master-axis-titles/13927/6
-    # NOTE: I've come to the conclusion that a one-size-fits-all solution is not possible for all graphs
+    # Modeling after https://github.com/plotly/plotly.py/blob/92ce5bce770dc5390bda0f44a9b6b033d4f2c39e/packages/python/plotly/plotly/_subplots.py#L1110
+    # with exception for facet_col title yshift
     if facet_col:
+        # replace x-axis
         fig.update_xaxes(title=None)
         fig.add_annotation(
             x=0.5,
-            y=-0,
+            y=0,
             yshift=_determine_annotation_shift(df[x]),
-            #yshift=-30,
+            font=dict(size=16),
             showarrow=False,
             text=x_title,
             name="x-title",
             xref="paper",
             yref="paper",
+            xanchor="center",
             yanchor="top",
         )
+        # update y-axis font to match facet title font
+        fig.update_yaxes(title_font=dict(size=16))
 
     if facet_row:
+        # replace y-axis
         fig.update_yaxes(title=None)
         fig.add_annotation(
             x=0,
             xshift=-40,
             y=0.5,
+            yshift=0,
+            font=dict(size=16),
             showarrow=False,
             text=y_title,
             textangle=-90,
@@ -256,7 +291,11 @@ def _update_axis_titles(fig, df, x, y, facet_col=None, facet_row=None, x_title=N
             xref="paper",
             yref="paper",
             xanchor="right",
+            yanchor="middle",
         )
+        # update x-axis font to match facet title font
+        fig.update_xaxes(title_font=dict(size=16))
+
 
 def _update_by_plot_type(fig, plot_type, force_overlay=False, use_jitter=False):
     """Updates specific to certain plot types.  Updates 'fig' inplace."""
@@ -296,10 +335,11 @@ def _update_by_plot_type(fig, plot_type, force_overlay=False, use_jitter=False):
 
 def generate_plot(df, x=None, y=None, z=None, facet_row=None, facet_col=None,
                       color_name=None, colormap=None, palette=None,
-                      reverse_palette=False, category_orders=None,
+                      reverse_palette=False, category_orders={},
                       plot_type='scatter', hide_x_labels=False, hide_y_labels=False,
                       hide_legend=None, text_name=None, jitter=False,
                       x_range=None, y_range=None, vlines=[], x_title=None, y_title=None,
+                      is_projection=False,
                       **kwargs):
     """Generates and returns figure for facet grid."""
 
@@ -314,15 +354,29 @@ def generate_plot(df, x=None, y=None, z=None, facet_row=None, facet_col=None,
     kwargs["traces"].setdefault("marker", {})           # If markers does not exist within
     kwargs["traces"]["marker"].setdefault("size", 3)    # If size does not exist within
 
+
+    # Round y values to 2 decimal places for hover data
+    try:
+        df["y_rounded"] = df[y].astype(float).round(2)
+    except:
+        # If y is not a number, try x.  If that is not a number, use y as is
+        try:
+            df["y_rounded"] = df[x].astype(float).round(2)
+        except:
+            df["y_rounded"] = df[y]
+
+    # These labels allows use to override these labels used for axis titles, etc.
+    labels_dict = {x:x_title, y:y_title, "color_name":""}
+
     # Collect all args in a dictionary for easy passing to plotting function
     plotting_args={"x":x
         , "y":y
         , "facet_row":facet_row
         , "facet_col":facet_col
         , "color":color_name
-        , "category_orders": category_orders if category_orders else {}
-        , "labels": {x:x_title, y:y_title, color_name:""}
-        , "hover_name": text_name if text_name else y
+        , "category_orders": category_orders
+        , "labels":labels_dict
+        , "hover_name": text_name if text_name else "y_rounded"
         }
 
     # Ensure label is one of the labels that is not lost from "gropuby"
@@ -333,13 +387,14 @@ def generate_plot(df, x=None, y=None, z=None, facet_row=None, facet_col=None,
     plotting_args = _adjust_colorscale(plotting_args, colormap, palette)
     plotting_args["hover_data"] = { col: False for col in df.columns.tolist() }
 
+
     # If jitter is needed for scatter plot, convert to a strip plot
     if plot_type == "scatter" and jitter:
         plot_type = "strip"
 
     # For scatter plots with a lot of datapoints, use WebGL rendering
     if plot_type == "scattergl":
-        plot_type == "scatter"
+        plot_type = "scatter"
         plotting_args["render_mode"] = "webgl"
 
     # For line plots, use svg render since webgl mode does not have spline as a valid line shape (as of plotly 4.14.3)
@@ -368,6 +423,22 @@ def generate_plot(df, x=None, y=None, z=None, facet_row=None, facet_col=None,
     if plot_type in ["bar"]:
         plotting_args["error_y"] = "std" if "std" in df.columns else None
 
+        if "std" in df.columns:
+            # For expression data, error_y_minus cannot go below 0 (negative values are not possible)
+            # Projections can go either way depending on the data
+            if not is_projection:
+                df["std_minus"] = df["std"]
+                df.loc[df[y] - df["std"] < 0, "std_minus"] = df[y]
+
+                plotting_args["error_y_minus"] = "std_minus"
+
+            # Add standard deviation to hover data
+            plotting_args["hover_data"] = {
+                x: False,
+                y: False,
+                "std": ':.2f'
+            }
+
     if plot_type == 'contour':
         plotting_args["z"] = z
         plotting_args["histfunc"] = "avg"   # For expression data
@@ -393,18 +464,27 @@ def generate_plot(df, x=None, y=None, z=None, facet_row=None, facet_col=None,
         # TODO: put in function
 
         # Map indexes for subplot ordering.  Indexes start at 1 since plotting rows/cols start at 1
-        facet_row_groups = category_orders[facet_row] if facet_row and facet_row in category_orders else []
+        facet_row_groups = []
+        facet_col_groups = []
+
+        if facet_row:
+            facet_row_groups = category_orders[facet_row] if facet_row in category_orders else df[facet_row].unique().tolist()
+
+        if facet_col:
+            facet_col_groups = category_orders[facet_col] if facet_col in category_orders else df[facet_col].unique().tolist()
+
         facet_row_indexes = {group: idx for idx, group in enumerate(facet_row_groups, start=1)}
         num_rows = len(facet_row_groups) if facet_row else 1
-        facet_col_groups = category_orders[facet_col] if facet_col and facet_col in category_orders else []
         facet_col_indexes = {group: idx for idx, group in enumerate(facet_col_groups, start=1)}
         num_cols = len(facet_col_groups) if facet_col else 1
 
         # Make faceted plot
         fig = make_subplots(rows=num_rows
                 , cols=num_cols
-                , row_titles=facet_row_groups if facet_row else None
-                , column_titles=facet_col_groups if facet_col else None
+                , row_titles=list(facet_row_groups)
+                , column_titles=list(facet_col_groups)
+                , x_title=x_title if x_title else None
+                , y_title=y_title if y_title else None
                 )
 
         # Because of the reliance on the premade figure, this cannot go at the top of the page
@@ -431,7 +511,7 @@ def generate_plot(df, x=None, y=None, z=None, facet_row=None, facet_col=None,
         priority_groups = _build_priority_groups(facet_row, facet_col, color_name, x)
         if priority_groups:
             # Groupby will not include combinations with missing data.  This can result in missing traces for a group
-            grouped = df.groupby(priority_groups)
+            grouped = df.groupby(priority_groups, observed=False)
             names_in_legend = {}
             # Name is a tuple of groupings, or a string if grouped by only 1 dataseries
             # Group is the 'groupby' dataframe
@@ -447,7 +527,7 @@ def generate_plot(df, x=None, y=None, z=None, facet_row=None, facet_col=None,
                 # Each individual trace is a separate scalegroup to ensure plots are scaled correctly for violin plots
                 new_plotting_args['scalegroup'] = name
                 if isinstance(name, tuple):
-                    new_plotting_args['scalegroup'] = "_".join(name)
+                    new_plotting_args['scalegroup'] = "_".join(str(name))
 
                 # If color dataseries is present, add some special configurations
                 if color_name:
@@ -469,7 +549,11 @@ def generate_plot(df, x=None, y=None, z=None, facet_row=None, facet_col=None,
 
                     if colormap:
                         # Use black outlines with colormap fillcolor. Pertains mostly to violin plots
-                        new_plotting_args['fillcolor'] = colormap[curr_color]
+                        try:
+                            new_plotting_args['fillcolor'] = colormap[curr_color]
+                        except KeyError as e:
+                            # If color series and colormap differ, skip coloring but still make the plot.
+                            print("ERROR: Series {} not found in passed-in colormap. Skipping.".format(curr_color), file=sys.stderr)
 
                 # Now determine which plot this trace should go to.  Facet column is first if row does not exist.
                 # Note the "facet_row/col_indexes" enum command started indexing at 1, so no need to increment for 1-indexed subplots
@@ -497,13 +581,9 @@ def generate_plot(df, x=None, y=None, z=None, facet_row=None, facet_col=None,
             fig.update_xaxes(showticklabels=False)
             max_x = "xaxis{}".format(num_rows if num_rows > 1 else "")
             fig['layout'][max_x]['showticklabels'] = True
-        else:
-            fig['layout']['xaxis']['title']['text'] = x_title
         if facet_col:
             fig.update_yaxes(showticklabels=False)
             fig['layout']['yaxis']['showticklabels'] = True
-        else:
-            fig['layout']['yaxis']['title']['text'] = y_title
 
         # Order the columns
         if x in category_orders:
@@ -566,7 +646,10 @@ def generate_plot(df, x=None, y=None, z=None, facet_row=None, facet_col=None,
     # Plottype-specific tweaks
     _update_by_plot_type(fig, plot_type, force_overlay, jitter)
 
-    _update_axis_titles(fig, df, x, y, facet_col, facet_row, x_title, y_title)
+    if not plot_type in ["violin"]:
+        # Axis titles are added correctly in violin plots due to the explicit make_subplots call.
+        # However it is added per facet for the other plot types
+        _update_axis_titles(fig, df, x, y, facet_col, facet_row, x_title, y_title)
 
     # Add vertical lines
     [_add_vertical_lines(fig, vl) for vl in vlines]

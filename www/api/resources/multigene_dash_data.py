@@ -1,13 +1,16 @@
 import json
-import os
+import sys  # for debug prints
 
 import gear.mg_plotting as mg
 import geardb
 import pandas as pd
 from flask import request
 from flask_restful import Resource
-from gear.mg_plotting import PlotError
 from plotly.utils import PlotlyJSONEncoder
+
+from gear.mg_plotting import PlotError
+from .common import create_projection_adata, order_by_time_point
+
 
 # SAdkins - 2/15/21 - This is a list of datasets already log10-transformed where if selected will use log10 as the default dropdown option
 # This is meant to be a short-term solution until more people specify their data is transformed via the metadata
@@ -32,7 +35,7 @@ LOG10_TRANSFORMED_DATASETS = [
 , "f1ce4e63-3577-8020-8307-e88f1fb98953"
 , "2f79f784-f7f7-7dc3-9b3e-4c87a4346d91"
 , "c32835d3-cac4-bb0e-a90a-0b41dec6617a"
-#, "fbe1296e-572c-d388-b9d1-6e2a6bf10b0a"
+, "48bab518-439e-4a17-b868-6b225abf2c73"    # Carlo dataset
 , "1b12dde9-1762-7564-8fbd-1b07b750505f"
 , "a2dd9f06-5223-0779-8dfc-8dce7a3897e1"
 , "f7de7db2-b4cb-ebe3-7f1f-b278f46f1a7f"
@@ -53,55 +56,28 @@ LOG10_TRANSFORMED_DATASETS = [
 , "80eadbe6-49ac-8eaf-f2fb-e07706cf117b"    # HRP dataset
 ]
 
-def order_by_time_point(obs_df):
-    """Order observations by time point column if it exists."""
-    # check if time point order is intially provided in h5ad
-    time_point_order = obs_df.get('time_point_order')
-    if (time_point_order is not None and 'time_point' in obs_df.columns):
-        sorted_df = obs_df.drop_duplicates().sort_values(by='time_point_order')
-        # Safety check. Make sure time point is categorical before
-        # calling .cat
-        obs_df['time_point'] = pd.Categorical(obs_df['time_point'])
-        col = obs_df['time_point'].cat
-        obs_df['time_point'] = col.reorder_categories(
-            sorted_df.time_point.drop_duplicates(), ordered=True)
-        obs_df = obs_df.drop(['time_point_order'], axis=1)
-    return obs_df
+CLUSTER_LIMIT = 5000
 
-def get_analysis(analysis, dataset_id, session_id, analysis_owner_id):
-    """Return analysis object based on various factors."""
-    # If an analysis is posted we want to read from its h5ad
-    if analysis:
-        ana = geardb.Analysis(id=analysis['id'], dataset_id=dataset_id,
-                                session_id=session_id, user_id=analysis_owner_id)
+def create_composite_index_column(df, columns):
+    """
+    Create a composite index column by joining values from multiple columns.
 
-        try:
-            ana.type = analysis['type']
-        except:
-            user = geardb.get_user_from_session_id(session_id)
-            ana.discover_type(current_user_id=user.id)
-    else:
-        ds = geardb.Dataset(id=dataset_id, has_h5ad=1)
-        h5_path = ds.get_file_path()
+    Args:
+        df (pandas.DataFrame): The DataFrame containing the columns.
+        columns (list): A list of column names to be joined.
 
-        # Let's not fail if the file isn't there
-        if not os.path.exists(h5_path):
-            raise PlotError("No h5 file found for this dataset")
-        ana = geardb.Analysis(type='primary', dataset_id=dataset_id)
-    return ana
+    Returns:
+        pandas.Series: A Series containing the composite index values.
 
-def create_projection_adata(dataset_adata, projection_csv):
-    # Create AnnData object out of readable CSV file
-    # ? Does it make sense to put this in the geardb/Analysis class?
-    try:
-        import scanpy as sc
-        projection_adata = sc.read_csv("/tmp/{}".format(projection_csv))
-    except:
-        raise PlotError("Could not create projection AnnData object from CSV.")
-
-    projection_adata.obs = dataset_adata.obs
-    projection_adata.var["gene_symbol"] = projection_adata.var_names
-    return projection_adata
+    Example:
+        >>> df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})
+        >>> create_composite_index_column(df, ['A', 'B'])
+        0    1;4
+        1    2;5
+        2    3;6
+        dtype: object
+    """
+    return df.obs[columns].apply(lambda x: ';'.join(map(str, x)), axis=1)
 
 class MultigeneDashData(Resource):
     """Resource for retrieving data from h5ad to be used to draw charts on UI.
@@ -121,7 +97,6 @@ class MultigeneDashData(Resource):
         session_id = request.cookies.get('gear_session_id')
         req = request.get_json()
         analysis = req.get('analysis', None)
-        analysis_owner_id = req.get('analysis_owner_id', None)
         plot_type = req.get('plot_type')
         gene_symbols = req.get('gene_symbols', [])
         filters = req.get('obs_filters', {})    # Dict of lists
@@ -132,12 +107,15 @@ class MultigeneDashData(Resource):
         reverse_colorscale = req.get('reverse_colorscale', False)
         # Heatmap opts
         clusterbar_fields = req.get('clusterbar_fields', [])
+        subsample_limit = req.get('subsample_limit', 0)
         matrixplot = req.get('matrixplot', False)
         center_around_zero = req.get('center_around_zero', False)
         cluster_obs = req.get('cluster_obs', False)
         cluster_genes = req.get('cluster_genes', False)
         flip_axes = req.get('flip_axes', False)
         distance_metric = req.get('distance_metric', "euclidean")
+        hide_obs_labels = req.get('hide_obs_labels', False)
+        hide_gene_labels = req.get('hide_gene_labels', False)
         # Quadrant plot options
         compare_group1 = req.get("compare1_condition", None)
         compare_group2 = req.get("compare2_condition", None)
@@ -164,23 +142,44 @@ class MultigeneDashData(Resource):
         kwargs = req.get("custom_props", {})    # Dictionary of custom properties to use in plot
 
         try:
-            ana = get_analysis(analysis, dataset_id, session_id, analysis_owner_id)
-        except PlotError as pe:
+            ana = geardb.get_analysis(analysis, dataset_id, session_id)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
             return {
-                'success': -1,
-                'message': str(pe),
+                "success": -1,
+                "message": "Could not retrieve analysis."
             }
 
-        # Using adata with "backed" mode does not work with volcano plot
-        adata = ana.get_adata(backed=False)
+        try:
+            adata = ana.get_adata(backed=True)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": -1,
+                "message": "Could not retrieve AnnData object."
+            }
 
         adata.obs = order_by_time_point(adata.obs)
+
+        # quick check to ensure
+
 
         # get a map of all levels for each column
         columns = adata.obs.select_dtypes(include="category").columns.tolist()
 
         if 'replicate' in columns:
             columns.remove('replicate')
+
+        # remove _colors columns
+        columns = [col for col in columns if not col.endswith('_colors')]
+
+        # Remove any columns that are have more than 50 unique values
+        # These are likely not categorical columns (i.e. barcodes) and can cause issues with the composite index
+        for col in columns:
+            if len(adata.obs[col].unique()) > 50:
+                columns.remove(col)
 
         if not columns:
             return {
@@ -189,17 +188,19 @@ class MultigeneDashData(Resource):
             }
 
         # Ensure datasets are not doubly log-transformed
+        # In the case of projection inputs, we don't want to log-transform either
         is_log10 = False
-        if dataset_id in LOG10_TRANSFORMED_DATASETS:
+        if dataset_id in LOG10_TRANSFORMED_DATASETS or projection_id:
             is_log10 = True
 
         success = 1
         message = ""
 
         if projection_id:
-            projection_csv = "{}.csv".format(projection_id)
             try:
-                adata = create_projection_adata(adata, projection_csv)
+                adata = create_projection_adata(adata, dataset_id, projection_id)
+                # For plots where var.index is used, we need to assign that a name (currently empty)
+                adata.var.index = adata.var.index.rename("index")
             except PlotError as pe:
                 return {
                     'success': -1,
@@ -213,18 +214,20 @@ class MultigeneDashData(Resource):
         # 3 Warning - One or more genes could not be processed
         # NOTE: The success level in a warning can be overridden by another warning or error
 
+        # delete all "None" values from the gene_symbols list
+        # These are genes that did not map in the orthology mapping
+        gene_symbols = [gene for gene in gene_symbols if gene]
+
         # TODO: How to deal with a gene mapping to multiple Ensemble IDs
         try:
-
             if not gene_symbols and plot_type in ["dotplot", "heatmap", "mg_violin"]:
                 raise PlotError('Must pass in some genes before creating a plot of type {}'.format(plot_type))
 
             if len(gene_symbols) == 1 and plot_type == "heatmap":
-                raise PlotError('Heatmaps require 2 or more genes as input')
+                raise PlotError('Heatmaps require 2 or more genes from the input to be directly found or mapped to orthologs in the dataset.')
 
             # Some datasets have multiple ensemble IDs mapped to the same gene.
             # Drop dups to prevent out-of-bounds index errors downstream
-            #var = adata.var.drop_duplicates(subset=['gene_symbol'])
             gene_filter, success, message = mg.create_dataframe_gene_mask(adata.var, gene_symbols)
         except PlotError as pe:
             return {
@@ -233,16 +236,25 @@ class MultigeneDashData(Resource):
             }
 
         # ADATA - Observations are rows, genes are columns
-        selected = adata
+        try:
+            selected = adata.to_memory()
+        except:
+            # The "try" may fail for projections as it is already in memory
+            selected = adata
 
         # These plot types filter to only the specific genes.
         # The other plot types use all genes and rather annotate the specific ones.
         if plot_type in ['dotplot', 'heatmap', 'mg_violin'] and gene_filter is not None:
             selected = selected[:, gene_filter]
 
-            if plot_type == "heatmap" and len(selected.var) == 1:
-                raise PlotError("Only one gene from the searched gene symbols was found in dataset.  The heatmap option require at least 2 genes to plot.")
-
+            try:
+                if plot_type == "heatmap" and len(selected.var) == 1:
+                    raise PlotError("Only one gene from the searched gene symbol was found in dataset.  The heatmap option requires at least 2 genes to plot.")
+            except PlotError as pe:
+                return {
+                    "success": -1,
+                    "message": str(pe)
+                }
             # Get a list of sorted ensembld IDs based on the specified gene symbol order
             ensm_to_gene = selected.var.to_dict()["gene_symbol"]
             # Since genes were restricted to one Ensembl ID we can invert keys and vals
@@ -252,64 +264,106 @@ class MultigeneDashData(Resource):
             dataset_genes = adata.var['gene_symbol'].unique().tolist()
             # Gene symbols list may have genes not in the dataset.
             normalized_genes_list, _found_genes = mg.normalize_searched_genes(dataset_genes, gene_symbols)
+
+            # deduplicate normalized_genes_list
+            normalized_genes_list = list(dict.fromkeys(normalized_genes_list))
+
             # Sort ensembl IDs based on the gene symbol order
             sorted_ensm = map(lambda x: gene_to_ensm[x], normalized_genes_list)
 
-        # Make a composite index of all categorical types
-        selected.obs['composite_index'] = selected.obs[columns].apply(lambda x: ';'.join(map(str,x)), axis=1)
-        selected.obs['composite_index'] = selected.obs['composite_index'].astype('category')
-        columns.append("composite_index")
 
-        # Filter dataframe on the chosen observation filters
-        if filters:
-            # Create a special composite index for the specified filters
-            selected.obs['filters_composite'] = selected.obs[filters.keys()].apply(lambda x: ';'.join(map(str,x)), axis=1)
-            selected.obs['filters_composite'] = selected.obs['filters_composite'].astype('category')
-            columns.append("filters_composite")
-            unique_composite_indexes = selected.obs["filters_composite"].unique()
-
-            # Only want to keep indexes that match chosen filters
-            # However if no filters were chosen, just use everything
-            filtered_composite_indexes = mg.create_filtered_composite_indexes(filters, unique_composite_indexes.tolist())
-            if filtered_composite_indexes:
-                condition_filter = selected.obs["filters_composite"].isin(filtered_composite_indexes)
-                selected = selected[condition_filter, :]
-
-        # Reorder the categorical values in the observation dataframe
-        if sort_order:
-            # Ensure selected primary and secondary columns are in the correct order
+        try:
+            # Reorder the categorical values in the observation dataframe
             sort_fields = []
-            if primary_col:
-                sort_fields.append(primary_col)
-            if secondary_col and secondary_col != primary_col:
-                sort_fields.append(secondary_col)
-            # Add the rest of the sort order observation keys if any others exist.
-            # Currently this should only consist of the primary and secondary columns, but may be extended in the future.
-            obs_keys = sort_order.keys()
-            for key in obs_keys:
-                if key not in sort_fields:
-                    sort_fields.append(key)
+            if sort_order:
+                # Ensure selected primary and secondary columns are in the correct order
+                if primary_col:
+                    sort_fields.append(primary_col)
+                if secondary_col and secondary_col != primary_col:
+                    sort_fields.append(secondary_col)
 
-            # Now reorder the dataframe
-            for key in sort_fields:
-                col = selected.obs[key]
-                try:
-                    # Some columns might be numeric, therefore
-                    # we don't want to reorder these
+                # Now reorder the dataframe
+                for key in sort_fields:
+                    if key not in selected.obs:
+                        raise PlotError(f"Sort order series {key} not found in observation metadata for dataset. Please update curation.")
+
+                    col = selected.obs[key]
+                    try:
+                        # Some columns might be numeric, therefore
+                        # we don't want to reorder these
+                        # ! This will pass on cases where the sort value is not in the column. Will be handled in the "filter" section
+                        reordered_col = col.cat.reorder_categories(
+                            sort_order[key], ordered=True)
+                        selected.obs[key] = reordered_col
+                    except:
+                        pass
+
+            # Make a composite index of all categorical types
+            selected.obs['composite_index'] = create_composite_index_column(selected, columns)
+            selected.obs['composite_index'] = selected.obs['composite_index'].astype('category')
+            columns.append("composite_index")
+
+            # Filter dataframe on the chosen observation filters
+            if filters:
+                for field in filters.keys():
+                    values = filters[field]
+
+                    if field not in selected.obs:
+                        raise PlotError(f"Filter series {field} not found in observation metadata for dataset. Please update curation")
+
+                    # if there is an "NA" value in the filters but no "NA" in the dataframe
+                    # check if it is a missing value, and if so, impute it
+                    if "NA" in values and "NA" not in selected.obs[field].cat.categories:
+                        values.remove("NA")
+                        selected.obs[field].cat.add_categories("NA")
+                        selected.obs[field].fillna("NA", inplace=True)
+
+                    mask = selected.obs[field].isin(values)
+                    selected = selected[mask, :]
+
+                    # reorder filter key the same order as sort_order if key exists
+                    # Mostly for fixing the order of the heatmap clusterbars
+                    if sort_order and field in sort_order:
+                        filters[field] = sort_order[field]
+
+                # if the filters are empty, return an empty dataframe
+                if selected.shape[0] == 0:
+                    return {
+                        "success": -1,
+                        "message": "No data found for the selected filters."
+                    }
+
+                # For the remaining data, create a special composite index for the specified filters
+                selected.obs['filters_composite'] = create_composite_index_column(selected, filters.keys())
+                selected.obs['filters_composite'] = selected.obs['filters_composite'].astype('category')
+                columns.append("filters_composite")
+
+                # Do another sort, this time by the filters
+                # Filtering the dataset may unsort the original sort we did.
+                # This is in case the filter key has less categories than the provided sort key
+                for key in sort_fields:
+                    col = selected.obs[key]
+
+                    # If every filter key is not in the col categories, raise an error
+                    # This can happen if a curation was made and then the dataset was reloaded with different labels
+                    if not all([val in col.cat.categories for val in filters[key]]):
+                        raise PlotError(f"At least one value for filter series {key} is not found in the observation metadata in the dataset. Please update curation.")
+
                     reordered_col = col.cat.reorder_categories(
-                        sort_order[key], ordered=True)
+                        filters[key], ordered=True)
                     selected.obs[key] = reordered_col
-                except:
-                    pass
+        except PlotError as pe:
+            return {
+                'success': -1,
+                'message': str(pe),
+            }
 
-            # Sort selected.obs based on reordered categorical columns
-            #selected.obs = selected.obs.sort_values(by=sort_fields)
 
         var_index = selected.var.index.name
 
         if plot_type == "volcano":
             try:
-                key, query_val, ref_val = mg.validate_volcano_conditions(query_condition, ref_condition)
+                key, query_val, ref_val = mg.validate_volcano_conditions(selected.obs, query_condition, ref_condition)
                 df = mg.prep_volcano_dataframe(selected
                     , key
                     , query_val
@@ -322,6 +376,9 @@ class MultigeneDashData(Resource):
                     'success': -1,
                     'message': str(pe),
                 }
+
+            # Build a dictionary to easily move gene_syms to "text" property and ensembl ids to "customdata" property
+            ensm2genesymbol = pd.Series(df["gene_symbol"].values, index=df["ensm_id"]).to_dict()
 
             # Volcano plot expects specific parameter names (unless we wish to change the options)
             fig = mg.create_volcano_plot(df
@@ -339,7 +396,7 @@ class MultigeneDashData(Resource):
                 downcolor = "rgb(254, 232, 56)"
                 upcolor = "rgb(0, 34, 78)"
 
-            mg.modify_volcano_plot(fig, query_val, ref_val, downcolor, upcolor)
+            mg.modify_volcano_plot(fig, query_val, ref_val, ensm2genesymbol, downcolor, upcolor)
 
             if gene_symbols:
                 dataset_genes = df['gene_symbol'].unique().tolist()
@@ -352,7 +409,7 @@ class MultigeneDashData(Resource):
                 dataset_genes = adata.var['gene_symbol'].unique().tolist()
                 normalized_genes_list, _found_genes = mg.normalize_searched_genes(dataset_genes, gene_symbols)
             try:
-                key, control_val, compare1_val, compare2_val = mg.validate_quadrant_conditions(ref_condition, compare_group1, compare_group2)
+                key, control_val, compare1_val, compare2_val = mg.validate_quadrant_conditions(selected.obs, ref_condition, compare_group1, compare_group2)
                 df = mg.prep_quadrant_dataframe(selected
                         , key
                         , control_val
@@ -417,7 +474,10 @@ class MultigeneDashData(Resource):
             groupby = ["gene_symbol"]
             groupby.extend(groupby_filters)
 
-            grouped = df.groupby(groupby)
+            # drop Ensembl ID index since it may not aggregate and throw warnings
+            df.drop(columns=[var_index], inplace=True)
+
+            grouped = df.groupby(groupby, observed=True)
             df = grouped.agg(['mean', 'count', ('percent', percent)]) \
                 .fillna(0) \
                 .reset_index()
@@ -429,6 +489,14 @@ class MultigeneDashData(Resource):
             fig = mg.create_dot_plot(df, groupby_filters, is_log10, title, colorscale, reverse_colorscale)
 
         elif plot_type == "heatmap":
+            for field in clusterbar_fields:
+                if field not in selected.obs:
+                    return {
+                        'success': -1,
+                        'message': f"Clusterbar field '{field}' not found in observation metadata for dataset. Please update curation."
+                    }
+
+
             # Filter genes and slice the adata to get a dataframe
             # with expression and its observation metadata
             df = selected.to_df()
@@ -436,27 +504,36 @@ class MultigeneDashData(Resource):
             # Sort Ensembl ID columns by the gene symbol order
             df = df[sorted_ensm]
 
+            # Enabling subsampling to deal with potential memory issues for clustering.
+            # If clustering on observations, limit samples to 10,000 or fewer
+            # If a subsampling limit was set, sample based on the min of these two values
+            if subsample_limit > len(df) or subsample_limit == 0:
+                subsample_limit = len(df)
+            if cluster_obs and len(df) > CLUSTER_LIMIT:
+                subsample_limit = min(subsample_limit, CLUSTER_LIMIT)
+            df = df.sample(subsample_limit, random_state=1)
+
             groupby_index = "composite_index"
             groupby_fields = columns
             # Create a composite to groupby
             if filters and matrixplot:
                 union_fields = mg.union(list(filters.keys()), clusterbar_fields)
-                selected.obs['groupby_composite'] = selected.obs[union_fields].apply(lambda x: ';'.join(map(str,x)), axis=1)
+                selected.obs['groupby_composite'] = create_composite_index_column(selected, union_fields)
                 selected.obs['groupby_composite'] = selected.obs['groupby_composite'].astype('category')
                 columns.append("groupby_composite")
                 groupby_index = "groupby_composite"
                 union_fields.extend([groupby_index, "filters_composite"])   # Preserve filters index for downstream labeling
                 groupby_fields = union_fields
 
-            # Remove composite index so that the label is not duplicated.
-            for cat in columns:
+            # Only add the fields that will be used downstream
+            for cat in groupby_fields:
                 df[cat] = selected.obs[cat]
 
             # Groupby to remove the replicates
             # Ensure the composite index is used as the index for plot labeling
             if matrixplot:
-                grouped = df.groupby(groupby_fields)
-                df = grouped.agg('mean') \
+                grouped = df.groupby(groupby_fields, observed=False)
+                df = grouped.mean() \
                     .dropna() \
                     .reset_index() \
                     .set_index(groupby_index)
@@ -466,6 +543,13 @@ class MultigeneDashData(Resource):
             groupby_fields.remove(groupby_index)
             if not matrixplot:
                 df = df.drop(columns=groupby_index)
+
+            # Sort based on the specified sort order
+            if primary_col:
+                sortby_fields = [primary_col]
+                if secondary_col and not primary_col == secondary_col:
+                    sortby_fields.append(secondary_col)
+                df = df.sort_values(by=sortby_fields)
 
             # Drop the obs metadata now that the dataframe is sorted
             # They cannot be in there when the clustergram is made
@@ -487,6 +571,8 @@ class MultigeneDashData(Resource):
                 , distance_metric
                 , colorscale
                 , reverse_colorscale
+                , hide_obs_labels
+                , hide_gene_labels
                 )
 
             # Need the obs metadata again for mapping clusterbars to indexes
@@ -528,7 +614,12 @@ class MultigeneDashData(Resource):
             df["gene_symbol"] = df[var_index].map(ensm_to_gene).astype('category')
             df["gene_symbol"] = df["gene_symbol"].cat.reorder_categories(
                         normalized_genes_list, ordered=True)
-            df = df.sort_values(by=["gene_symbol"])
+
+            # This is a bit redundant for regular violin plots, which sort correctly without sorting by the "groupby_fields"
+            # But the stacked violin plot does not respect the sorted order of the categories after melting, so we need to sort again
+            sortby_fields = ["gene_symbol"]
+            sortby_fields.extend(groupby_filters)
+            df = df.sort_values(by=sortby_fields)
 
             violin_func = mg.create_stacked_violin_plot if stacked_violin else mg.create_violin_plot
 
@@ -560,6 +651,10 @@ class MultigeneDashData(Resource):
                 'message': "Plot type {} is not a valid multi-gene plot option".format(plot_type)
             }
 
+        # Close adata so that we do not have a stale opened object
+        if adata.isbacked:
+            adata.file.close()
+
         # If figure is actualy a JSON error message, send that instead
         if "success" in fig and fig["success"] == -1:
             return fig
@@ -588,8 +683,33 @@ class MultigeneDashData(Resource):
         if legend_title:
             fig.update_layout(
                 legend={
-                    "text":legend_title
+                    "title":{
+                        "text":legend_title
+                    }
                 }
+            )
+
+        # Change plot elements to indicuate projections instead of genes
+        if projection_id:
+            fig.update_layout(
+                legend_title_text=fig.layout.legend.title.text.replace("gene", "projection").replace("Gene", "Projection") if fig.layout.legend.title.text else None
+                , title_text=fig.layout.title.text.replace("gene", "projection").replace("Gene", "Projection") if fig.layout.title.text else None
+            )
+            fig.for_each_xaxis(
+                lambda a: a.update(
+                    title={
+                        "text": a.title.text.replace("gene", "projection").replace("Gene", "Projection") if a.title.text else None
+
+                    }
+                )
+            )
+            fig.for_each_yaxis(
+                lambda a: a.update(
+                    title={
+                        "text": a.title.text.replace("gene", "projection").replace("Gene", "Projection") if a.title.text else None
+
+                    }
+                )
             )
 
         # Pop any default height and widths being added
@@ -602,18 +722,5 @@ class MultigeneDashData(Resource):
         return {
             "success": success
             , "message": message
-            , 'gene_symbols': gene_symbols
             , 'plot_json': json.loads(plot_json)
         }
-
-class PaletteData(Resource):
-    def get(self):
-        colorscale = request.args.get('colorscale', None)
-
-        if not colorscale:
-            raise Exception("No colorscale provided")
-
-        try:
-            return mg.get_colorscale(colorscale)
-        except Exception as e:
-            raise Exception(str(e))
