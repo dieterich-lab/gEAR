@@ -298,7 +298,10 @@ CREATE TABLE layout (
           REFERENCES guser(id)
           ON DELETE CASCADE
 ) ENGINE=INNODB DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;
-INSERT INTO layout VALUES (0, 0, NULL, "Human heart (default)", 1);
+
+-- The following insert makes no sense.
+-- In PROD on app01 we have no entry like this - soe properly don't need it
+-- INSERT INTO layout VALUES (0, 0, NULL, "Human heart (default)", 1);
 
 CREATE TABLE layout_members (
        id                       INT PRIMARY KEY AUTO_INCREMENT,
