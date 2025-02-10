@@ -2,7 +2,7 @@ ALTER TABLE guser
     ADD default_org_id INT NOT NULL DEFAULT 1,
     ADD layout_id INT;
 
-ALTER TABLE dataset ADD is_downloadable TINYINT DEFAULT 1:
+ALTER TABLE dataset ADD is_downloadable TINYINT DEFAULT 1;
 
 ALTER TABLE layout
     ADD is_public TINYINT(1) DEFAULT 0,
