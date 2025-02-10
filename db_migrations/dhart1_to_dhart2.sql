@@ -13,6 +13,7 @@ ALTER TABLE layout_members
     MODIFY COLUMN mg_grid_width INT NOT NULL DEFAULT 12,
     ADD mg_grid_position INT NOT NULL DEFAULT 0,
     ADD start_col INT NOT NULL DEFAULT 1,
+    ADD mg_start_col INT NOT NULL DEFAULT 1,
     ADD start_row INT NOT NULL DEFAULT 1,
     ADD mg_start_row INT NOT NULL DEFAULT 1,
     ADD grid_height INT NOT NULL DEFAULT 1,
