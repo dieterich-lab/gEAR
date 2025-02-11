@@ -1,6 +1,7 @@
 ALTER TABLE guser
     ADD default_org_id INT NOT NULL DEFAULT 1,
-    ADD layout_id INT;
+    ADD layout_id INT,
+    CHANGE COLUMN is_gear_curator is_curator TINYINT(1) DEFAULT 0;
 
 ALTER TABLE dataset ADD is_downloadable TINYINT DEFAULT 1;
 
