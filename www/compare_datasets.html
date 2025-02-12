@@ -79,86 +79,6 @@
                       </div>
                     </div>
                   </div>
-                  <div id="dataset_tree"></div>
-                </form>
-              </div>  <!-- end dropdown-menu -->
-            </div>  <!-- end dataset_c -->
-            <div class="form-group-sm">
-              <ul class="nav nav-tabs" id="condition_tabs" role="tablist" style="display:none;">
-                <li class="nav-item">
-                  <a id="condition_x_tab" class="nav-link active" data-toggle="tab" href="#conditions_accordion" role="tab" aria-controls="conditions_accordion" aria-selected="true">X Condition</a>
-                </li>
-                <li class="nav-item">
-                  <a id="condition_y_tab" class="nav-link" data-toggle="tab" href="#conditions_accordion" role="tab" aria-controls="conditions_accordion" aria-selected="false">Y Condition</a>
-                </li>
-              </ul>
-            </div>
-
-            <div class="form-group-sm alert alert-info" id="conditions_accordion">Select a dataset above to view groups.</div>
-            <br />
-            <div id="noncats"></div>
-            <h3>Axis titles</h3>
-            <small class="form-text text-muted">Customize the axes labels.</small>
-            <div class="form-group-sm">
-              <label for="x_label" class="control-label mb-0 mt-2">Adjust X Label</label>
-              <input class="form-control form-control-sm" id="x_label" placeholder="Name of x-axis label">
-            </div>
-            <div class="form-group-sm">
-              <label for="y_label" class="control-label mb-0 mt-2">Adjust Y Label</label>
-              <input class="form-control form-control-sm" id="y_label" placeholder="Name of y-axis label">
-            </div>
-            <hr />
-            <button id='btn_apply_dataset_changes' type="button" class="btn btn-default btn-sm center-block btn-apply-filter">Plot</button>
-          </div>  <!-- end filter_block -->
-
-          <div id="chart_settings">
-            <h3>Data filters / settings</h3>
-            <form>
-              <div class="form-group-sm">
-                <label for="log_base" class="control-label mb-0 mt-2">Apply log transformation</label>
-                <select id="log_base" class="form-control form-control-sm">
-                  <option value="False">None (data is logarithmized)</option>
-                  <option value="2" selected="selected">Log2</option>
-                  <option value="10">Log10</option>
-                  <option value="None">Natural</option>
-                </select>
-              </div>
-              <div class="form-group-sm">
-                <label for="fold_change_cutoff" class="control-label mb-0 mt-2">Log2 fold change cutoff (>= N)</label>
-                <input id="fold_change_cutoff" class="form-control form-control-sm" value="1.0"/>
-              </div>
-              <!--<div class="form-group-sm">
-                <label for="std_dev_num_cutoff" class="control-label mb-0 mt-2">Adjust standard deviation</label>
-                <select id="std_dev_num_cutoff" class="form-control form-control-sm">
-                  <option value="0" selected="selected">No filter</option>
-                  <option value="1">1 standard deviation</option>
-                  <option value="2">2 standard deviations</option>
-                </select>
-              </div>-->
-            </form>
-            <h3>Significance test</h3>
-            <form>
-              <div class="form-group-sm">
-                <label id="statistical_test_label" for="statistical_test" class="control-label mb-0 mt-1">Select significance test</label>
-                <select id="statistical_test" class="form-control form-control-sm">
-                  <option value="" selected="selected">None</option>
-                  <option value="t-test">T-test</option>
-                  <option value="t-test_overestim_var">T-test (overestimated variance)</option>
-                  <option value="wilcoxon">Wilcoxon-Rank-Sum</option>
-                </select>
-              </div>
-              <div class="form-group-sm">
-                <label for="test_pval_cutoff" class="control-label mb-0 mt-2">Adjust p-value cutoff</label>
-                <input type="number" id="test_pval_cutoff" class="form-control form-control-sm" min=0 max=1.0 value=0.05 disabled/>
-              </div>
-              <div class="form-group-sm" id="stat_action_options_c">
-                <div class="custom-control custom-radio custom-control-inline">
-                  <input type="radio" class="custom-control-input" value="colorize" id="stat_action_colorize" name="stat_action" checked>
-                  <label class="custom-control-label" for="stat_action_colorize">Colorize</label>
-                </div>
-                <div class="custom-control custom-radio custom-control-inline">
-                  <input type="radio" class="custom-control-input" value="filter" id="stat_action_filter" name="stat_action">
-                  <label class="custom-control-label" for="stat_action_filter">Filter</label>
                 </div>
               </div>
             </div>
@@ -249,6 +169,7 @@
                 </p>
                 <span class="tags" id="selected-facets-tags"></span>
               </div>
+
               <span class="title is-6">Extra filters to apply to both conditions</span>
               <p class="help">Useful for doing X vs Y comparison on subsets of data beyond the main series to compare.</p>
               <div id="facet-c" class="content"></div>
