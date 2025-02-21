@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python3
 
 """
 For a given weighted genecart, return all genes and their weights (sorted descending) for the specified pattern

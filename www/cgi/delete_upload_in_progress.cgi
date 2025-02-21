@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python3
 
 """
 This script deletes one of directories representing a user's upload in progress.

@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python3
 
 """
 Removes a display from a layout via the 'remove from current collection' button in the dataset_explorer

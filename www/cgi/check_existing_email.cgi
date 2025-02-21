@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python3
 
 """
 Checks to see if the passed e-mail address exists for a user already.

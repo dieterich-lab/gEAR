@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python3
 
 """
 Given a passed GEO ID, this returns a JSON object with the metadata for the series.

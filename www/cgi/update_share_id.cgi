@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python3
 
 # This script is used to update the share id (permalink)
 # of either a layout, genecart, or dataset.
