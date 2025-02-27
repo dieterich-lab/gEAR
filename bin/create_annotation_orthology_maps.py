@@ -56,11 +56,12 @@ def main():
 
     # Only those taxon IDs here will be included
     # taxon_id -> organism_id
-    taxon_ids = {7955: 3,
-                 9606: 2,
-                 10090: 1,
-                 10116: 6,
-    #             6239: 8
+    taxon_ids = {
+        9606: 1,
+        10090: 2,
+        10116: 3,
+        9823: 4,
+        7955: 5,
     }
 
     # load each of the annotations
