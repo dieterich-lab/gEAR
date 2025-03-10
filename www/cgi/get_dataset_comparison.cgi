@@ -35,16 +35,7 @@ def main():
     fold_change_cutoff = form.getvalue('fold_change_cutoff')
     fold_change_cutoff = float(fold_change_cutoff) if fold_change_cutoff else None
     log_transformation = form.getvalue('log_transformation')
-    if log_transformation == 'False':
-        log_transformation = False
-    elif log_transformation == 'None':
-        log_transformation = None
-    else:
-        log_transformation = int(log_transformation)
     statistical_test = form.getvalue('statistical_test')
-
-    #msg = f"{fold_change_cutoff}, {log_transformation}, {type(log_transformation)}, {statistical_test}"
-    #return_error_response(msg)
 
     dataset = Dataset(id=dataset_id, has_h5ad=1)
     h5_path = dataset.get_file_path()
@@ -92,10 +83,6 @@ def main():
     adata.obs.loc[condition_x_repls_filter, 'compare'] = 'x'
     adata.obs.loc[condition_y_repls_filter, 'compare'] = 'y'
 
-    # rank_genes_groups expects logarithmized data
-    if not log_transformation is False:
-        sc.pp.log1p(adata, base=log_transformation)
-
     # add the composite column for ranked grouping
     if perform_ranking == True:
         try:
@@ -123,8 +110,6 @@ def main():
     adata_x_subset = adata[condition_x_repls_filter, :]
     adata_y_subset = adata[condition_y_repls_filter, :]
 
-    # now mean-log values
-
     df_x = pd.DataFrame({
         # adata.X ends up being 2 dimensional array with gene's values going down a column.
         # We tranpose so a gene's replicate values are in a list and then we take the average
@@ -133,12 +118,8 @@ def main():
         'gene_sym': adata_x_subset.var.gene_symbol
     })
 
-    # add log2 fold changes from scanpy
-    df_x['log2_fc'] = ranked['logfoldchanges'].values
-
     if perform_ranking:
-        #df_x['pvals_adj'] = adata.uns['rank_genes_groups']['pvals_adj']
-        df_x['pvals_adj'] = ranked['pvals_adj'].values
+        df_x['pvals_adj'] = adata.uns['rank_genes_groups']['pvals_adj']
 
     result = {
                'fold_change_std_dev': None,
@@ -155,8 +136,7 @@ def main():
     # There's too much data to show it all, else plotting fails.  So let's filter
     #  and skip those whose differences fall within N standard deviations of the mean.
     for index, row in df_x.iterrows():
-        #result['fold_changes'].append(fold_change(row['e1_raw'], row['e2_raw']))
-        result['fold_changes'].append(row['log2_fc'])
+        result['fold_changes'].append(fold_change(row['e1_raw'], row['e2_raw']))
         result['values'].append([row['e1_raw'], row['e2_raw']])
         result['x'].append(row['e1_raw'])
         result['y'].append(row['e2_raw'])
@@ -176,52 +156,50 @@ def main():
     filtered_symbols = list()
     filtered_fold_changes = list()
 
-    #if std_dev_num_cutoff > 0:
-        #cutoff_diff = fold_change_std_dev * std_dev_num_cutoff
-        #idx = 0
-
-        #for (e1_raw, e2_raw) in result['values']:
-            #if fold_change(e1_raw, e2_raw) > cutoff_diff:
-                #filtered_values.append([e1_raw, e2_raw])
-                #filtered_x.append(e1_raw)
-                #filtered_y.append(e2_raw)
-                #filtered_gene_ids.append(result['gene_ids'][idx])
-                #filtered_symbols.append(result['symbols'][idx])
-                #filtered_fold_changes.append(fold_change(e1_raw, e2_raw))
-
-                #if perform_ranking:
-                    #filtered_pvals_adj.append(result['pvals_adj'][idx])
-
-            #idx += 1
-
-        #result['values'] = filtered_values
-        #result['pvals_adj'] = filtered_pvals_adj
-        #result['gene_ids'] = filtered_gene_ids
-        #result['symbols'] = filtered_symbols
-        #result['x'] = filtered_x
-        #result['y'] = filtered_y
-        #result['fold_changes'] = filtered_fold_changes
-        #filtered_values = list()
-        #filtered_pvals_adj = list()
-        #filtered_x = list()
-        #filtered_y = list()
-        #filtered_gene_ids = list()
-        #filtered_symbols = list()
-        #filtered_fold_changes = list()
-
-    if fold_change_cutoff > 0:
+    if std_dev_num_cutoff > 0:
+        cutoff_diff = fold_change_std_dev * std_dev_num_cutoff
         idx = 0
 
         for (e1_raw, e2_raw) in result['values']:
-            #if fold_change(e1_raw, e2_raw) >= fold_change_cutoff:
-            if abs(result['fold_changes'][idx]) >= fold_change_cutoff:
+            if fold_change(e1_raw, e2_raw) > cutoff_diff:
                 filtered_values.append([e1_raw, e2_raw])
                 filtered_x.append(e1_raw)
                 filtered_y.append(e2_raw)
                 filtered_gene_ids.append(result['gene_ids'][idx])
                 filtered_symbols.append(result['symbols'][idx])
-                #filtered_fold_changes.append(fold_change(e1_raw, e2_raw))
-                filtered_fold_changes.append(result['fold_changes'][idx])
+                filtered_fold_changes.append(fold_change(e1_raw, e2_raw))
+
+                if perform_ranking:
+                    filtered_pvals_adj.append(result['pvals_adj'][idx])
+
+            idx += 1
+
+        result['values'] = filtered_values
+        result['pvals_adj'] = filtered_pvals_adj
+        result['gene_ids'] = filtered_gene_ids
+        result['symbols'] = filtered_symbols
+        result['x'] = filtered_x
+        result['y'] = filtered_y
+        result['fold_changes'] = filtered_fold_changes
+        filtered_values = list()
+        filtered_pvals_adj = list()
+        filtered_x = list()
+        filtered_y = list()
+        filtered_gene_ids = list()
+        filtered_symbols = list()
+        filtered_fold_changes = list()
+
+    if fold_change_cutoff > 0:
+        idx = 0
+
+        for (e1_raw, e2_raw) in result['values']:
+            if fold_change(e1_raw, e2_raw) >= fold_change_cutoff:
+                filtered_values.append([e1_raw, e2_raw])
+                filtered_x.append(e1_raw)
+                filtered_y.append(e2_raw)
+                filtered_gene_ids.append(result['gene_ids'][idx])
+                filtered_symbols.append(result['symbols'][idx])
+                filtered_fold_changes.append(fold_change(e1_raw, e2_raw))
 
                 if perform_ranking:
                     filtered_pvals_adj.append(result['pvals_adj'][idx])
@@ -235,9 +213,9 @@ def main():
         result['gene_ids'] = filtered_gene_ids
         result['symbols'] = filtered_symbols
         result['fold_changes'] = filtered_fold_changes
-        #filtered_values = list()
-        #filtered_x = list()
-        #filtered_y = list()
+        filtered_values = list()
+        filtered_x = list()
+        filtered_y = list()
 
     # Is there a transformation to apply?
     log_base = None
@@ -251,14 +229,14 @@ def main():
             transformed_e1 = get_log(e1_raw, log_base)
             transformed_e2 = get_log(e2_raw, log_base)
 
-            #if transformed_e1 is not None and transformed_e2 is not None:
-                #filtered_x.append(transformed_e1)
-                #filtered_y.append(transformed_e2)
-                #filtered_values.append([transformed_e1,transformed_e2])
+            if transformed_e1 is not None and transformed_e2 is not None:
+                filtered_x.append(transformed_e1)
+                filtered_y.append(transformed_e2)
+                filtered_values.append([transformed_e1,transformed_e2])
 
-        #result['values'] = filtered_values
-        #result['x'] = filtered_x
-        #result['y'] = filtered_y
+        result['values'] = filtered_values
+        result['x'] = filtered_x
+        result['y'] = filtered_y
 
     result['fold_change_std_dev'] = "{0:.2f}".format(fold_change_std_dev)
     result["compare_key"] = compare_key
