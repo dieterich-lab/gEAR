@@ -218,10 +218,11 @@ PMID: 34172972`;
         showNavbarElementsWithAnimation();
         SIDEBAR_COLLAPSED = false;
     }
-
+/*
     document.querySelector('#epiviz-panel-designer-link').addEventListener('click', (event) => {
         createToast("This feature is not yet available.", "is-warning");
     });
+ */
 
 /**
  * / End controls for the left navbar visibility
