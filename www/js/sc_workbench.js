@@ -264,7 +264,7 @@ const loadDatasetTree = async () => {
         if (datasetData.user.datasets.length > 0) {
             // User has some profiles
             for (const item of datasetData.user.datasets) {
-                if (item) {
+                if ( isSingleCell(item) ) {
                     userDatasets.push({ value: counter++, text: item.title, dataset_id : item.id, organism_id: item.organism_id });
                 }
             };
@@ -272,7 +272,7 @@ const loadDatasetTree = async () => {
         // Next, add datasets shared with the user
         if (datasetData.shared_with_user.datasets.length > 0) {
             for (const item of datasetData.shared_with_user.datasets) {
-                if (item) {
+                if ( isSingleCell(item) ) {
                     sharedDatasets.push({ value: counter++, text: item.title, dataset_id : item.id, organism_id: item.organism_id });
                 }
             };
@@ -280,7 +280,7 @@ const loadDatasetTree = async () => {
         // Now, add public datasets
         if (datasetData.public.datasets.length > 0) {
             for (const item of datasetData.public.datasets) {
-                if (item) {
+                if ( isSingleCell(item) ) {
                     domainDatasets.push({ value: counter++, text: item.title, dataset_id : item.id, organism_id: item.organism_id });
                 }
             };
@@ -297,6 +297,12 @@ const loadDatasetTree = async () => {
         document.querySelector(UI.datasetSectionFailedElt).classList.remove("is-hidden");
     }
 
+}
+
+const SINGLE_CELL_DTYPES = ['single-cell-rnaseq', 'singlecell-h5ad']
+
+const isSingleCell = (item) => {
+    return item && SINGLE_CELL_DTYPES.includes(item.dtype)
 }
 
 /**
