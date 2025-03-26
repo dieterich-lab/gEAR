@@ -1495,15 +1495,18 @@ const apiCallsMixin = {
 const footer = document.querySelectorAll('footer').item(0)
 footer.innerHTML = `
     <!-- Add custom footer for DHART -->
-    <div style="display: flex; justify-content: center;">
-      <div style="flex-grow: 1">
-      <a href="https://www.klinikum.uni-heidelberg.de/">
-        <img src="img/by_domain/dhart/171029Logo_UKHD_dt_positiv_RGB.png" style="max-height:100px;" title="Heidelberg University Hospital"/>
-      </a>
+    <div style="display: flex>
+      <div style="flex-grow: 1"></div>
+      <div>
+        <a href="https://www.klinikum.uni-heidelberg.de/">
+          <img src="img/by_domain/dhart/171029Logo_UKHD_dt_positiv_RGB.png" style="max-height:100px;" title="Heidelberg University Hospital"/>
+        </a>
       </div>
-      <div style="flex-grow: 1">
+      <div style="flex-grow: 1"></div>
+      <div>
         <a href="https://dzhk.de/">
           <img src="img/by_domain/dhart/dzhk.png" style="max-height:100px;" title="German Center for Cardiovascular Research"/>
         </a>
       </div>
+      <div style="flex-grow: 1"></div>
     </div>`;
