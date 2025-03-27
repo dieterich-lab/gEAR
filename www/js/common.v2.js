@@ -1484,19 +1484,13 @@ footer.innerHTML = `
     <div style="display: flex">
       <div style="flex-grow: 1">
       <div>
-        <header class="card-header">
-          <p class="card-header-title">
-            DHART is based on
-          </p>
-        </header>
-        <div class="card-content">
-          <div class="content">
-            gEAR: Gene Expression Analysis Resource portal for community-driven, multi-omic data exploration.<br />
-            Orvis J, et al. Nat Methods. 2021 Jun 25. <br />
-            doi: 10.1038/s41592-021-01200-9<br />
-            PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/34172972/" target="_blank">34172972</a>
-          </div>
-        </div>
+        <p width="30%">
+          DHART is based on:<br />
+          gEAR: Gene Expression Analysis Resource portal for community-driven, multi-omic data exploration.<br />
+          Orvis J, et al. Nat Methods. 2021 Jun 25. <br />
+          doi: 10.1038/s41592-021-01200-9<br />
+          PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/34172972/" target="_blank">34172972</a>
+        </p>
       </div>
       <div style="flex-grow: 1">
       </div>
