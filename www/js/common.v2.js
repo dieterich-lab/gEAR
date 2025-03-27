@@ -1482,8 +1482,6 @@ const footer = document.querySelectorAll('footer').item(0)
 footer.innerHTML = `
     <!-- Add custom footer for DHART -->
     <div style="display: flex">
-      <div style="flex-grow: 1">
-      </div>
       <div>
         <p style="font-size: 0.75rem">
           DHART is based on:<br />
