@@ -1485,7 +1485,7 @@ footer.innerHTML = `
       <div style="flex-grow: 1">
       </div>
       <div>
-        <p width="30%">
+        <p style="font-size: 0.75rem">
           DHART is based on:<br />
           gEAR: Gene Expression Analysis Resource portal for community-driven, multi-omic data exploration.<br />
           Orvis J, et al. Nat Methods. 2021 Jun 25. <br />
