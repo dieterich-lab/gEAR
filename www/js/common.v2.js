@@ -1483,6 +1483,7 @@ footer.innerHTML = `
     <!-- Add custom footer for DHART -->
     <div style="display: flex">
       <div style="flex-grow: 1">
+      </div>
       <div>
         <p width="30%">
           DHART is based on:<br />
