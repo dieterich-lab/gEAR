@@ -137,7 +137,7 @@ def main():
 
     if dtypes:
         ## only alphanumeric characters and the dash are allowed here
-        dtypes = re.sub("[^,\-A-Za-z0-9]", "", dtypes).split(',')
+        dtypes = re.sub("[^,A-Za-z0-9-]", "", dtypes).split(',')
         dtype_str = (', '.join('"' + item + '"' for item in dtypes))
         wheres.append(f"d.dtype in ({dtype_str})")
 
