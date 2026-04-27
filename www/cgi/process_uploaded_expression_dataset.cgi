@@ -121,6 +121,8 @@ def main():
         process_mex_3tab(dataset_upload_dir)
     elif dataset_format == 'excel':
         process_excel(dataset_upload_dir)
+    elif dataset_format == 'h5ad':
+        process_h5ad(dataset_upload_dir)
     else:
         raise Exception('Unsupported dataset format')
 
@@ -286,6 +288,14 @@ def process_excel(upload_dir):
 
 def process_mex(upload_dir):
     pass
+
+def process_h5ad(upload_dir):
+    write_status(upload_dir, 'processing', 'Initializing dataset processing.')
+    filepath = os.path.join(upload_dir, f"{share_uid}.h5ad")
+    if not os.path.exists(filepath):
+        write_status(upload_dir, 'error', "No h5ad file found.")
+        return
+    write_status(upload_dir, 'complete', 'Dataset processed successfully.')
 
 def process_mex_3tab(upload_dir):
     # Extract the file
