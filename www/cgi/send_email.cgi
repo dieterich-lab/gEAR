@@ -2,7 +2,11 @@
 
 """
 Sends email to user
-Scopes: 'forgot_password'
+Scopes: 'forgot_password' or 'user_verification'
+
+How to test on the command line, example:
+
+./send_email.cgi 'email=jorvis@som.umaryland.edu&scope=user_verification&verification_code_long=foo-bar-long'
 
 """
 
@@ -121,6 +125,7 @@ def main():
         try:
             # http://stackoverflow.com/a/17596848/2900840
             s = smtplib.SMTP('localhost')
+            #s.set_debuglevel(1)
             s.ehlo()
             # s.starttls()
             # s.login(sender, password)

@@ -6,18 +6,19 @@ rfuncs.py - Miscellaneous R-style functions called through rpy2
 import sys  # for print debugging
 import traceback
 
+import pandas as pd  # for dataframe manipulation
+
 # rpy2.robjects calls rinterface.initr() under-the-hood when initialized to start the R session
 import rpy2.robjects as ro
-# The number of R sessions appears to be limited to the number of threads apache allocates to the Flask API
-# If this number of sessions exceeds number of threads, a RNotReady error will be thrown for each subsequent session
-
-from rpy2.robjects import pandas2ri
-from rpy2.robjects.packages import importr
-from rpy2.robjects.conversion import localconverter
-from rpy2.robjects.vectors import StrVector
 
 # If running locally, need to ensure that multiple concurrent R calls do not conflict
 from rpy2.rinterface_lib import openrlib
+
+# The number of R sessions appears to be limited to the number of threads apache allocates to the Flask API
+# If this number of sessions exceeds number of threads, a RNotReady error will be thrown for each subsequent session
+from rpy2.robjects import pandas2ri
+from rpy2.robjects.conversion import localconverter
+from rpy2.robjects.packages import importr
 
 
 class RError(Exception):
@@ -26,23 +27,23 @@ class RError(Exception):
         self.message = message
         super().__init__(self.message)
 
-def convert_r_df_to_r_matrix(df):
+def convert_r_df_to_r_matrix(df: pd.DataFrame):
     """
     Convert R-style dataframe to R-style matrix
     """
 
     r_matrix = ro.r["as.matrix"]
-    return r_matrix(df)
+    return r_matrix(df, drop=False) # type: ignore
 
-def convert_r_matrix_to_r_df(mtx):
+def convert_r_matrix_to_r_df(mtx) -> pd.DataFrame:
     """
     Convert R-style matrix to R-style dataframe
     """
     # mtx is a matrix of numbers with PCs in columns
     r_df = ro.r["as.data.frame"]
-    return r_df(mtx)
+    return r_df(mtx) # type: ignore
 
-def run_projectR_cmd(target_df, loading_df, algorithm):
+def run_projectR_cmd(target_df: pd.DataFrame, loading_df: pd.DataFrame, algorithm: str, full_output:bool =False)-> list[pd.DataFrame]:
     """
     Convert input Pandas dataframes to R matrix.
     Pass the inputs into the projectR function written in R.
@@ -85,7 +86,24 @@ def run_projectR_cmd(target_df, loading_df, algorithm):
             try:
                 if algorithm == "nmf":
                     projectR = importr('projectR')
-                    projection_patterns_r_matrix = projectR.projectR(data=target_r_matrix, loadings=loading_r_matrix, full=False)
+                    if full_output:
+                        # R code: projectionFit <- list('projection'=projectionPatterns, 'pval'=pval.matrix)
+                        projection_fit_r = projectR.projectR(data=target_r_matrix, loadings=loading_r_matrix, full=True)
+                        # convert obj back to Python
+                        projection_fit = ro.conversion.rpy2py(projection_fit_r)
+
+                        # Both projection and pval are R-style matrices that need to be converted to R-style dataframes
+                        projection_patterns_r_matrix = projection_fit[0]
+                        pval_r_matrix = projection_fit[1]
+                        projection_patterns_r_df = convert_r_matrix_to_r_df(projection_patterns_r_matrix)
+                        pval_r_df = convert_r_matrix_to_r_df(pval_r_matrix)
+
+                        with local_rules:
+                            projection_patterns_df = ro.conversion.rpy2py(projection_patterns_r_df)
+                            pval_df = ro.conversion.rpy2py(pval_r_df)
+                            return [projection_patterns_df, pval_df]
+                    else:
+                        projection_patterns_r_matrix = projectR.projectR(data=target_r_matrix, loadings=loading_r_matrix, full=False)
                 elif algorithm == "fixednmf":
                     sjd = importr('SJD')
                     loading_list = ro.ListVector({"genesig": loading_r_matrix})
@@ -93,6 +111,10 @@ def run_projectR_cmd(target_df, loading_df, algorithm):
                     projection_patterns_r_matrix = projection.rx2("proj_score_list").rx2("genesig")
                 else:
                     raise ValueError("Algorithm {} is not supported".format(algorithm))
+            except ValueError as ve:
+                # print stacktrace with line numbers
+                traceback.print_exc(file=sys.stderr)
+                raise
             except Exception as e:
                 # print stacktrace with line numbers
                 traceback.print_exc(file=sys.stderr)
@@ -105,6 +127,6 @@ def run_projectR_cmd(target_df, loading_df, algorithm):
             # Convert from R data.frame to pandas dataframe
             projection_patterns_df = ro.conversion.rpy2py(projection_patterns_r_df)
 
-            return projection_patterns_df
+            return [projection_patterns_df]
 
 

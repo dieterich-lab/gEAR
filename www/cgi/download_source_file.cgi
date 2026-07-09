@@ -13,7 +13,7 @@ import cgi, html
 lib_path = os.path.abspath(os.path.join('..', '..', 'lib'))
 sys.path.append(lib_path)
 import geardb
-
+from gear.analysis import Analysis
 
 def download_file(file_path, file_name):
     print("Content-type: application/octet-stream")
@@ -29,37 +29,74 @@ def download_file(file_path, file_name):
             sys.stdout.buffer.write(chunk)
             sys.stdout.buffer.flush()
 
+def to_file(content, prefix='', suffix=''):
+    import tempfile
+    temp = tempfile.NamedTemporaryFile(delete=False, prefix=prefix, suffix=suffix, mode='w')
+    temp.write(content)
+    temp.close()
+    return temp.name
+
 def main():
     form = cgi.FieldStorage()
-    dataset_id = html.escape(form.getvalue('dataset_id'))
+    dataset_id = html.escape(form.getvalue('dataset_id', ""))
+    share_id = html.escape(form.getvalue("share_id", ""))
     analysis_id = html.escape(form.getvalue('analysis_id', ""))
     session_id = html.escape(form.getvalue('session_id', ""))
-    dtype = html.escape(form.getvalue('type'))
-    dataset = geardb.Dataset(id=dataset_id)
-    tarball_path = dataset.get_tarball_path()
-    h5ad_path = dataset.get_file_path()
+    dtype = html.escape(form.getvalue('type', ""))
 
-    # if analysis ID is passed, retrieve the h5ad file for the analysis to download
-    if analysis_id:
+    if not dataset_id and not share_id:
+        raise ValueError("Either dataset ID or share ID must be provided")
 
-        # Need session id to get "user_unsaved" analyses
-        if not session_id:
-          session_id = None
-
-        analysis = geardb.Analysis(id=analysis_id, dataset_id=dataset_id, session_id=session_id)
-        analysis.discover_type()
-        try:
-          h5ad_path = analysis.dataset_path()
-        except Exception as e:
-          print(str(e), file=sys.stderr)
-          h5ad_path = ""
-
-    if dtype == 'tarball' and os.path.isfile(tarball_path):
-        download_file(tarball_path, f"{dataset_id}.tar.gz")
-    elif dtype == 'h5ad' and os.path.isfile(h5ad_path):
-        download_file(h5ad_path, f"{dataset_id}.h5ad")
+    if not dtype:
+        raise ValueError("Type must be provided (tarball, h5ad, or metadata)")
+    elif dtype == "metadata":
+        metadata_content = geardb.get_metadata_by_share_id(share_id)
+        if metadata_content:
+            temp_file_path = to_file(metadata_content, prefix=f"{share_id}_metadata", suffix=".csv")
+            try:
+                download_file(temp_file_path, f"{share_id}.metadata.csv")
+            finally:
+                os.remove(temp_file_path)
+        else:
+            raise FileNotFoundError("Metadata not found")
     else:
-        config = configparser.ConfigParser()
+        # if share ID is passed, retrieve the dataset by share ID
+        if share_id:
+            dataset = geardb.get_dataset_by_share_id(share_id, False)
+            if not dataset:
+                raise FileNotFoundError(f"Dataset not found for the provided share ID {share_id}")
+            dataset_id = dataset.id
+
+        elif dataset_id:
+            # Legacy support
+            dataset = geardb.get_dataset_by_id(dataset_id, False)
+            if not dataset:
+                raise FileNotFoundError(f"Dataset not found for the provided dataset ID {dataset_id}")
+            share_id = dataset.share_id
+
+        tarball_path = dataset.get_tarball_path()
+        h5ad_path = dataset.get_file_path()
+
+        # if analysis ID is passed, retrieve the h5ad file for the analysis to download
+        if analysis_id:
+            # Need session id to get "user_unsaved" analyses
+            if not session_id:
+                session_id = None
+
+            analysis = Analysis(id=analysis_id, dataset_id=dataset_id, session_id=session_id)
+            analysis.discover_type()
+            try:
+                h5ad_path = analysis.dataset_path
+            except Exception as e:
+                print(str(e), file=sys.stderr)
+                h5ad_path = ""
+
+        if dtype == 'tarball' and os.path.isfile(tarball_path):
+            download_file(tarball_path, f"{share_id}.tar.gz")
+        elif dtype == 'h5ad' and os.path.isfile(h5ad_path):
+            download_file(h5ad_path, f"{share_id}.h5ad")
+        else:
+            config = configparser.ConfigParser()
         config.read('../../gear.ini')
         SITE_DOMAIN_URL = config['contact_form']['domain_url']
 

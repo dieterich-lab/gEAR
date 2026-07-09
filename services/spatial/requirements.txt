@@ -1,9 +1,8 @@
-panel==1.5.5
-plotly==5.20.0
-spatialdata==0.3.0
-spatialdata_io==0.1.6
-scanpy==1.10.3
-pandas==2.2.1
-anndata==0.10.6
+hvplot==0.12.2
+panel==1.9.3
+pandas==2.3.3
+#pyarrow==18.1.0 # v19 breaks reading spatial parquet files (used by Visium HD and Xenium)
+spatialpandas==0.5.0
 werkzeug==2.0.2
-watchfiles
+watchfiles==1.1.1
+datashader==0.19.0

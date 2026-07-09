@@ -1,17 +1,51 @@
-let CURRENT_USER;
+import { User } from "./classes/user.v2.js";
+
+let CURRENT_USER = undefined;
 let SIDEBAR_COLLAPSED = false;
 let SITE_PREFS = null;
 
-// if certain legacy or shorthand URL parameters are passed, change the parameter to the new ones
-const urlParams = new URLSearchParams(window.location.search);
+const getCurrentUser = () => CURRENT_USER;
+
+// Utility function to escape HTML special characters to prevent XSS attacks when inserting user-generated content into the DOM
+const escapeHtml = (value) => {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+	}
+
+// If a page wants to use this action, it can register a callback function
+let pageSpecificLoginUIUpdates = () => {};
+const registerPageSpecificLoginUIUpdates = (fn) => pageSpecificLoginUIUpdates = fn;
 
 // Handle unhandled promise rejections (general catch-all for anything that wasn't caught)
 // https://developer.mozilla.org/en-US/docs/Web/API/Window/unhandledrejection_event
-window.addEventListener("unhandledrejection", function (event) {
+window.addEventListener("unhandledrejection", (event) => {
     createToast("Something went wrong. Please contact the gEAR team and provide steps to reproduce.");
 });
 
-document.addEventListener('DOMContentLoaded', () => {
+/**
+ * Initializes and configures the common UI elements and behaviors for the application.
+ *
+ * This function performs the following tasks:
+ * - Loads site preferences and updates UI elements (title, logos, analytics) accordingly.
+ * - Sets the active state for the primary navigation based on the current page.
+ * - Adds event listeners for closing notifications and modals, including keyboard shortcuts.
+ * - Handles the beta site modal and user agreement via cookies.
+ * - Enables copying the site citation to the clipboard with user feedback.
+ * - Manages the visibility and animation of the left navigation bar, including tooltip handling and persistence via cookies.
+ * - Adds event listeners for login and logout actions, and checks for user login status.
+ *
+ * Dependencies:
+ * - Assumes global variables/functions: SITE_PREFS, SIDEBAR_COLLAPSED, CURRENT_USER, getDomainPreferences, loadPlugins, closeModal, closeAllModals, Cookies, copyToClipboard, createToast, doLogin, checkForLogin.
+ * - Relies on specific DOM structure and element IDs/classes.
+ *
+ * @function
+ * @returns {void}
+ */
+const initCommonUI = async () => {
     // load the site preferences JSON file, then call any functions which need it
     getDomainPreferences().then((result) => {
         SITE_PREFS = result;
@@ -45,9 +79,9 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const elt of document.querySelectorAll("#primary-nav .menu-list a.is-active")) {
 		elt.classList.remove("is-active");
 	}
-    const this_page_tool = document.getElementById("content-c").dataset.navLink;
-    const tool_search_string = "a[tool='" + this_page_tool + "'";
-	document.querySelector(tool_search_string).classList.add("is-active");
+    const thisPageTool = document.getElementById("content-c").dataset.navLink;
+    const toolSearchString = `a[tool='${thisPageTool}'`;
+	document.querySelector(toolSearchString).classList.add("is-active");
 
 
 
@@ -69,7 +103,8 @@ document.addEventListener('DOMContentLoaded', () => {
     (document.querySelectorAll('.modal-background, .modal-close, .modal-card-head .delete, .modal-card-foot .button') || []).forEach(($close) => {
         const $target = $close.closest('.modal');
 
-        $close.addEventListener('click', () => {
+        $close.addEventListener('click', (e) => {
+            e.preventDefault();
             closeModal($target);
         });
     });
@@ -81,30 +116,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // If the user has agreed to the site's beta status, don't show the modal
-    const betaSiteModal = document.getElementById('beta-site-modal');
-    const betaCookie = Cookies.get('gear_beta_agreed');
-    if (betaCookie != "true") {
-        //betaSiteModal.classList.add('is-active');
-    }
-
-    /**
-     * Temporary code to handle the warning modal while in beta mode
-     */
-    document.getElementById('beta-modal-agree').addEventListener('click', () => {
-        return;
-        Cookies.set('gear_beta_agreed', 'true', { expires: 7 });
-        betaSiteModal.classList.remove('is-active');
-    });
-
     // Makes the logo clickable as it was in v1
     document.getElementById('logo-c').addEventListener('click', () => {
         window.location.replace('./index.html');
     });
 
-/**
- * Controls for the left navbar visibility
- */
+    document.getElementById('citation-copy').addEventListener('click', () => {
+        const citationText = `gEAR: Gene Expression Analysis Resource portal for community-driven, multi-omic data exploration.
+Orvis J, et al. Nat Methods. 2021 Jun 25.
+doi: 10.1038/s41592-021-01200-9
+PMID: 34172972`;
+        copyToClipboard(citationText).then((copied) => {
+            if (copied) {
+                createToast("Citation copied to clipboard.", "is-success");
+            } else {
+                createToast("Failed to copy citation to clipboard.", "is-danger");
+            }
+        })
+    });
+
+    /**
+     * Controls for the left navbar visibility
+     */
     const navbarElementsToAnimate = document.querySelectorAll('.icon-text-part');
 
     /**
@@ -148,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleClass('span.menu-label-text', 'is-hidden', true);
         toggleClass('span.icon-text-part', 'is-hidden', true);
         toggleClass('#navbar-logo-normal', 'is-hidden', true);
+        toggleClass('#logo-c-text', 'is-hidden', true);
         toggleClass('#navbar-logo-small', 'is-hidden', false);
         toggleClass('#citation-c', 'is-hidden', true);
         toggleClass("#navbar-toggler i", "mdi-arrow-collapse-left", false);
@@ -168,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleClass('span.menu-label-text', 'is-hidden', false);
         toggleClass('span.icon-text-part', 'is-hidden', false);
         toggleClass('#navbar-logo-normal', 'is-hidden', false);
+        toggleClass('#logo-c-text', 'is-hidden', false);
         toggleClass('#navbar-logo-small', 'is-hidden', true);
         toggleClass('#citation-c', 'is-hidden', false);
         toggleClass("#navbar-toggler i", "mdi-arrow-collapse-left", true);
@@ -181,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         handlePrimaryNavTooltips(false);
     }
 
-    const navbarToggler = document.querySelector('#navbar-toggler');
+    const navbarToggler = document.getElementById('navbar-toggler');
 
     navbarToggler.addEventListener('click', (event) => {
         if (SIDEBAR_COLLAPSED == false) {
@@ -204,15 +239,10 @@ document.addEventListener('DOMContentLoaded', () => {
         showNavbarElementsWithAnimation();
         SIDEBAR_COLLAPSED = false;
     }
-/*
-    document.querySelector('#epiviz-panel-designer-link').addEventListener('click', (event) => {
-        createToast("This feature is not yet available.", "is-warning");
-    });
- */
 
-/**
- * / End controls for the left navbar visibility
- */
+    /**
+     * / End controls for the left navbar visibility
+     */
 
     /*************************************************************************************
      Code related to the login process, which is available in the header across all pages.
@@ -237,14 +267,46 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    checkForLogin();
-});
-
-const getDomainPreferences = async () => {
-    const response = await fetch('/site_domain_prefs.json');
-    return response.json();
+    await checkForLogin();
 }
 
+
+const getDomainPreferences = async () => {
+    const prefsResponse = await fetch('/site_domain_prefs.json');
+    const prefs = await prefsResponse.json();
+
+    const cacheResponse = await fetch('/cache_version.json');
+    const cacheData = await cacheResponse.json();
+
+    // Merge cache_version into the preferences object
+    prefs.cache_version = cacheData.cache_version;
+
+    return prefs;
+}
+
+/**
+ * Inserts a versioned CSS file into the document head.
+ * @param {string} href - The href path to the CSS file.
+ * @param {string} cacheVersion - The cache version to append as a query parameter.
+ */
+const insertVersionedCSS = (href, cacheVersion) => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `${href}?v=${cacheVersion}`;
+    document.head.appendChild(link);
+}
+
+/**
+ * Inserts a versioned JS file into the document head.
+ * @param {string} href - The href path to the JS file.
+ * @param {string} cacheVersion - The cache version to append as a query parameter.
+ */
+const insertVersionedJS = (href, cacheVersion) => {
+    const script = document.createElement('script');
+    script.type = 'module';
+    script.src = `${href}?v=${cacheVersion}`;
+    document.body.appendChild(script);
+}
 
 /**
  * Retrieves the value of a specified URL parameter.
@@ -264,11 +326,12 @@ const getUrlParameter = (sParam, urlParams=null) => {
 /**
  * Rebinds a URL parameter to a new parameter name.
  *
+ * @param {URLSearchParams} urlParams - The URLSearchParams object to modify.
  * @param {string} oldParam - The old parameter name to be replaced.
  * @param {string} newParam - The new parameter name to replace the old parameter.
  * @returns {URLSearchParams} - The updated URLSearchParams object.
  */
-const rebindUrlParam = (oldParam, newParam) => {
+const rebindUrlParam = (urlParams, oldParam, newParam) => {
     if (urlParams.has(oldParam)) {
         urlParams.set(newParam, urlParams.get(oldParam));
         urlParams.delete(oldParam);
@@ -468,9 +531,9 @@ const handleLoginUIUpdates = () => {
         hideLoggedInElements();
         showNotLoggedInElements();
     }
-    document.querySelector("#navbar-login-controls").classList.remove("is-hidden");
 
-    trigger(document, handlePageSpecificLoginUIUpdates);
+    pageSpecificLoginUIUpdates();
+    document.getElementById("navbar-login-controls").classList.remove("is-hidden");
 }
 
 /*************************************************************************************
@@ -564,18 +627,36 @@ const convertToFormData = (object) => {
  * @param {string} msg - The message to display in the toast.
  * @param {string} [levelClass="is-danger"] - The CSS class for the toast level. Defaults to "is-danger".
  * @param {boolean} [closeManually=false] - Indicates whether the toast can be closed manually or after a timeout. Defaults to false.
+ * @param {Object} [opts={ isHTML: false }] - Additional options for the toast.
  */
-const createToast = (msg, levelClass="is-danger", closeManually=false) => {
+const createToast = (msg, levelClass="is-danger", closeManually=false, opts = { isHTML: false }) => {
     const toast = document.createElement("div");
     toast.classList.add("notification", "js-toast", levelClass, "animate__animated", "animate__fadeInUp");
     const toastButton = document.createElement("button");
     toastButton.classList.add("delete");
+    toastButton.setAttribute("aria-label", "Dismiss notification");
     toastButton.addEventListener("click", (event) => {
         const notification = event.currentTarget.closest(".js-toast.notification");
-        notification.remove(notification);
+        notification.remove();
     });
     toast.appendChild(toastButton);
-    toast.appendChild(document.createTextNode(msg));
+    toast.appendChild(opts?.isHTML ? (() => {
+        const span = document.createElement("span");
+        const lines = String(msg).split("\n");
+        for (let i = 0; i < lines.length; i++) {
+            span.appendChild(document.createTextNode(lines[i]));
+            if (i < lines.length - 1) {
+                span.appendChild(document.createElement("br"));
+            }
+        }
+        lines.forEach((line, index) => {
+            if (index > 0) {
+                span.appendChild(document.createElement("br"));
+            }
+            span.appendChild(document.createTextNode(line));
+        });
+        return span;
+    })() : document.createTextNode(msg));
 
     const numToasts = document.querySelectorAll(".js-toast.notification").length;
     const numToastsThisLevel = document.querySelectorAll(`.js-toast.notification.${levelClass}`).length;
@@ -654,6 +735,7 @@ const loadPlugin = async (pluginName, pageName, pluginImportBasename) => {
     style.rel = 'stylesheet';
     head.append(style);
 
+    // TODO: Look into changing into a dynamic ESM import (https://dmitripavlutin.com/ecmascript-modules-dynamic-import/)
     const pluginImportJsUrl = `./plugins/${pluginName}/${pluginImportBasename}.js`;
     const script = document.createElement('script');
     script.src = pluginImportJsUrl;
@@ -738,12 +820,21 @@ const resetSteps = (event) => {
     currentStep.classList.add("step-active")
 }
 
-// Generates an RFC4122 version 4 compliant UUID
-const uuid = () => {
-    return 'xxxxxxxx-xxxx-xxxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
+/**
+ * Generates a unique identifier (UUID).
+ *
+ * @param {'long'|'short'} uidLength - Determines the length of the generated UUID.
+ *   - 'long': Returns a full UUID string (e.g., '123e4567-e89b-12d3-a456-426614174000').
+ *   - 'short': Returns only the first segment of the UUID (e.g., '123e4567').
+ * @returns {string} The generated unique identifier.
+ */
+const guid = (uidLength) => {
+    if (uidLength == 'long') {
+        return crypto.randomUUID();
+    }
+    if (uidLength == 'short') {
+        return crypto.randomUUID().split('-')[0];
+    }
 }
 
 for (const jsStep of jsSteps) {
@@ -764,6 +855,8 @@ Any axios methods that impolement these calls, must provide their own success/er
  * @mixin
  */
 const apiCallsMixin = {
+
+    // NOTE: These need to be called with apiCallsMixin.sessionId in the method definitions, not this.sessionID. Otherwise you get "undefined"
     sessionId: null,
     colorblindMode: null,
 
@@ -778,7 +871,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the response data.
      */
     async addDisplayToCollection(layoutShareId, displayId) {
-        const payload = {session_id: this.sessionId, layout_share_id: layoutShareId, display_id: displayId};
+        const payload = {session_id: apiCallsMixin.sessionId, layout_share_id: layoutShareId, display_id: displayId};
         const {data} = await axios.post("cgi/add_display_to_layout.cgi", convertToFormData(payload));
         return data;
     },
@@ -788,7 +881,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves with the response data.
      */
     async createDatasetCollection(collectionName) {
-        const payload = {session_id: this.sessionId, layout_name: collectionName};
+        const payload = {session_id: apiCallsMixin.sessionId, layout_name: collectionName};
         const {data} = await axios.post("cgi/add_layout.cgi", convertToFormData(payload));
         return data;
     },
@@ -798,10 +891,11 @@ const apiCallsMixin = {
      * @param {string} datasetId - The ID of the dataset.
      * @param {string} patternSource - The source of the pattern.
      * @param {string} algorithm - The algorithm to use for projection.
+     * @param {boolean} zscore - If zscore scaling should be applied.
      * @returns {Promise<any>} - A promise that resolves to the projection data.
      */
-    async checkForProjection(datasetId, patternSource, algorithm) {
-        const payload = { session_id: this.sessionId, genecart_id: patternSource, algorithm };
+    async checkForProjection(datasetId, patternSource, algorithm, zscore) {
+        const payload = { session_id: apiCallsMixin.sessionId, genecart_id: patternSource, algorithm, zscore };
         const {data} = await axios.post(`api/projectr/${datasetId}/output_file`, payload);
         return data;
     },
@@ -812,7 +906,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves with the response data from the server.
      */
     async deleteDataset(datasetId) {
-        const payload = {session_id: this.sessionId, dataset_id: datasetId};
+        const payload = {session_id: apiCallsMixin.sessionId, dataset_id: datasetId};
         const {data} = await axios.post("cgi/remove_dataset.cgi", convertToFormData(payload));
         return data;
     },
@@ -824,7 +918,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves with the response data.
      */
     async deleteDisplayFromCollection(layoutShareId, displayId) {
-        const payload = {session_id: this.sessionId, layout_share_id: layoutShareId, display_id: displayId};
+        const payload = {session_id: apiCallsMixin.sessionId, layout_share_id: layoutShareId, display_id: displayId};
         const {data} = await axios.post("cgi/remove_display_from_layout.cgi", convertToFormData(payload));
         return data;
     },
@@ -834,7 +928,7 @@ const apiCallsMixin = {
      * @returns {Promise<null>} - A promise that resolves to null.
      */
     async deleteDisplay(displayId) {
-        const payload = {session_id: this.sessionId, id: displayId};
+        const payload = {session_id: apiCallsMixin.sessionId, id: displayId};
         await axios.post("/cgi/delete_dataset_display.cgi", convertToFormData(payload));
         return null;
     },
@@ -845,7 +939,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves with the response data from the server.
      */
     async deleteDatasetCollection(layoutShareId) {
-        const payload = {session_id: this.sessionId, layout_share_id: layoutShareId};
+        const payload = {session_id: apiCallsMixin.sessionId, layout_share_id: layoutShareId};
         const {data} = await axios.post("cgi/remove_layout.cgi", convertToFormData(payload));
         return data;
     },
@@ -856,7 +950,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the response data from the server.
      */
     async deleteGeneList(shareId) {
-        const payload = {session_id: this.sessionId, share_id: shareId};
+        const payload = {session_id: apiCallsMixin.sessionId, share_id: shareId};
         const {data} = await axios.post("/cgi/remove_gene_cart.cgi", convertToFormData(payload));
         return data;
     },
@@ -868,8 +962,8 @@ const apiCallsMixin = {
      * @returns {Promise<object>} - The aggregated data.
      */
     async fetchAggregations(datasetId, analysisId, filters) {
-        const payload = {session_id: this.sessionId, dataset_id: datasetId, analysis_id: analysisId, filters};
-        const {data} = await axios.post(`/api/h5ad/${datasetId}/aggregations`, payload);
+        const payload = {dataset_id: datasetId, analysis_id: analysisId, filters};
+        const {data} = await axios.post(`/api/h5ad/${datasetId}/aggregations`, payload)
         return data;
     },
     /**
@@ -882,6 +976,15 @@ const apiCallsMixin = {
         return data;
     },
     /**
+     * Fetches the analysis tools available for a given dataset.
+     * @param {string} datasetId - The ID of the dataset.
+     * @returns {Promise<any>} - A promise that resolves to the fetched data.
+     */
+    async fetchAvailableAnalysisTools(shareId) {
+        const {data} = await axios.get(`./api/h5ad/${shareId}/availableAnalysisTools`);
+        return data;
+    },
+    /**
      * Fetches the available plot types for a given dataset and analysis.
      * @param {string} datasetId - The ID of the dataset.
      * @param {string} analysisId - The ID of the analysis.
@@ -890,12 +993,12 @@ const apiCallsMixin = {
      */
     async fetchAvailablePlotTypes(datasetId, analysisId, isMultigene=false){
         const flavor = isMultigene ? "mg_availableDisplayTypes" : "availableDisplayTypes";
-        const payload = {session_id: this.sessionId, dataset_id: datasetId, analysis_id: analysisId};
+        const payload = {session_id: apiCallsMixin.sessionId, dataset_id: datasetId, analysis_id: analysisId};
         const {data} = await axios.post(`/api/h5ad/${datasetId}/${flavor}`, payload);
         return data;
     },
     /**
-     * Fetches dashboard data from the server.
+     * Fetches multigene plotly data from the server.
      * @param {string} datasetId - The ID of the dataset.
      * @param {string} analysis - The type of analysis.
      * @param {string} plotType - The type of plot.
@@ -903,18 +1006,27 @@ const apiCallsMixin = {
      * @param {object} [otherOpts={}] - Additional options for the request.
      * @returns {Promise<object>} - The fetched data.
      */
-    async fetchDashData(datasetId, analysis, plotType, plotConfig, otherOpts={}) {
+    async fetchMgPlotlyData(datasetId, analysis, plotType, plotConfig, otherOpts={}) {
         // NOTE: gene_symbol should already be already passed to plotConfig
-        const payload = { ...plotConfig, plot_type: plotType, analysis, colorblind_mode: this.colorblindMode };
-        const {data} = await axios.post(`/api/plot/${datasetId}/mg_dash`, payload, otherOpts);
+        const payload = { ...plotConfig, plot_type: plotType, analysis, colorblind_mode: apiCallsMixin.colorblindMode };
+        const {data} = await axios.post(`/api/plot/${datasetId}/mg_plotly`, payload, otherOpts);
+        return data;
+    },
+    /**
+     * Fetches citation information for a given PubMed ID.
+     * @param {string} pubmedId - The PubMed ID for which to fetch citation information.
+     * @returns {Promise<object>} - A promise that resolves to the fetched citation data.
+     */
+    async fetchCitationFromPubmedId(pubmedId) {
+        const {data} = await axios.post("cgi/get_citation_from_pubmed_id.cgi", convertToFormData({pubmed_id: pubmedId}));
         return data;
     },
     /**
      * Fetches all datasets asynchronously.
      * @returns {Promise<any>} The fetched data.
      */
-    async fetchAllDatasets() {
-        const payload = {session_id: this.sessionId};
+    async fetchAllDatasets(shareId) {
+        const payload = {session_id: apiCallsMixin.sessionId, share_id: shareId};
         const {data} = await axios.post("cgi/get_h5ad_dataset_list.cgi", convertToFormData(payload));
         return data;
     },
@@ -964,7 +1076,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the dataset collection members.
      */
     async fetchDatasetCollectionMembers(layoutShareId) {
-        const payload = {session_id: this.sessionId, layout_share_id: layoutShareId};
+        const payload = {session_id: apiCallsMixin.sessionId, layout_share_id: layoutShareId};
         const {data} = await axios.post("cgi/get_users_layout_members.cgi", convertToFormData(payload));
         return data;
     },
@@ -978,7 +1090,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the fetched dataset collections.
      */
     async fetchDatasetCollections({layoutShareId=null, noDomain=0, includeMembers=true}={}) {
-        const payload = {session_id: this.sessionId, layout_share_id: layoutShareId, no_domain: noDomain, include_members: includeMembers ? 1 : 0};
+        const payload = {session_id: apiCallsMixin.sessionId, layout_share_id: layoutShareId, no_domain: noDomain, include_members: includeMembers ? 1 : 0};
         const {data} = await axios.post("cgi/get_user_layouts.cgi", convertToFormData(payload));
         return data;
     },
@@ -1000,7 +1112,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the fetched data.
      */
     async fetchDatasetDisplays(datasetId) {
-        const payload = {session_id: this.sessionId, dataset_id: datasetId};
+        const payload = {session_id: apiCallsMixin.sessionId, dataset_id: datasetId};
         const {data} = await axios.post("/cgi/get_dataset_displays.cgi", convertToFormData(payload));
         return data;
     },
@@ -1011,7 +1123,7 @@ const apiCallsMixin = {
      * @returns {Promise<Object>} The dataset list information.
      */
     async fetchDatasetListInfo(requestConfig) {
-        const payload = {session_id: this.sessionId, ...requestConfig};
+        const payload = {session_id: apiCallsMixin.sessionId, ...requestConfig};
         const {data} = await axios.post("/cgi/get_dataset_list.cgi", convertToFormData(payload));
         return data;
     },
@@ -1022,7 +1134,7 @@ const apiCallsMixin = {
      * @returns {Promise} A promise that resolves to the fetched datasets.
      */
     async fetchDatasets(searchCriteria) {
-        const payload = {session_id: this.sessionId, ...searchCriteria};
+        const payload = {session_id: apiCallsMixin.sessionId, ...searchCriteria};
         const {data} = await axios.post("/cgi/search_datasets.cgi", convertToFormData(payload));
         return data;
     },
@@ -1034,7 +1146,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the fetched data.
      */
     async fetchDefaultDisplay(datasetId, isMultigene=0) {
-        const payload = {session_id: this.sessionId, dataset_id: datasetId, is_multigene: isMultigene};
+        const payload = {session_id: apiCallsMixin.sessionId, dataset_id: datasetId, is_multigene: isMultigene};
         const {data} = await axios.post("/cgi/get_default_display.cgi", convertToFormData(payload));
         return data;
     },
@@ -1044,25 +1156,8 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the fetched data.
      */
     async fetchDisplay(displayId) {
-        const payload = {session_id: this.sessionId, display_id: displayId};
+        const payload = {session_id: apiCallsMixin.sessionId, display_id: displayId};
         const {data} = await axios.post("/cgi/get_dataset_display.cgi", convertToFormData(payload));
-        return data;
-    },
-    /**
-     * Fetches the Epiviz display data for a given dataset, gene symbol, and genome.
-     * @param {string} datasetId - The ID of the dataset.
-     * @param {string} geneSymbol - The gene symbol.
-     * @param {string} genome - The genome.
-     * @param {Object} [otherOpts={}] - Additional options for the axios request.
-     * @returns {Promise<any>} - A promise that resolves to the fetched data.
-     */
-    async fetchEpivizDisplay(datasetId, geneSymbol, genome, otherOpts={}) {
-
-        const urlParams = new URLSearchParams();
-        urlParams.append('gene', geneSymbol);
-        urlParams.append('genome', genome);
-
-        const {data} = await axios.get(`/api/plot/${datasetId}/epiviz?${urlParams.toString()}`, otherOpts);
         return data;
     },
     /**
@@ -1075,7 +1170,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - The fetched gene annotations.
      */
     async fetchGeneAnnotations(geneSymbols, exactMatch, layoutShareId, isMulti) {
-        const payload = { session_id: this.sessionId, search_gene_symbol: geneSymbols, exact_match: exactMatch, is_multi: isMulti, layout_share_id: layoutShareId };
+        const payload = { session_id: apiCallsMixin.sessionId, search_gene_symbol: geneSymbols, exact_match: exactMatch, is_multi: isMulti, layout_share_id: layoutShareId };
         const {data} = await axios.post(`/cgi/search_genes.cgi`, convertToFormData(payload));
         return data;
     },
@@ -1086,7 +1181,7 @@ const apiCallsMixin = {
      * @returns {Promise} - A promise that resolves to the fetched gene lists.
      */
     async fetchGeneLists(searchCriteria) {
-        const payload = {session_id: this.sessionId, ...searchCriteria};
+        const payload = {session_id: apiCallsMixin.sessionId, ...searchCriteria};
         const {data} = await axios.post(`/cgi/search_gene_carts.cgi`, convertToFormData(payload));
         return data;
     },
@@ -1096,7 +1191,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the data of the gene cart members.
      */
     async fetchGeneCartMembers(shareId) {
-        const payload = { session_id: this.sessionId, share_id: shareId };
+        const payload = { session_id: apiCallsMixin.sessionId, share_id: shareId };
         const {data} = await axios.post(`/cgi/get_gene_cart_members.cgi`, convertToFormData(payload));
         return data;
     },
@@ -1109,7 +1204,7 @@ const apiCallsMixin = {
      * @returns {Promise<Object>} The fetched gene carts.
      */
     async fetchGeneCarts({gcShareId=null, cartType=null, includeMembers=true}) {
-        const payload = {session_id: this.sessionId, cart_type: cartType, share_id: gcShareId, include_members: includeMembers ? 1 : 0};
+        const payload = {session_id: apiCallsMixin.sessionId, cart_type: cartType, share_id: gcShareId, include_members: includeMembers ? 1 : 0};
         const {data} = await axios.post(`/cgi/get_user_gene_carts.cgi`, convertToFormData(payload));
         return data;
     },
@@ -1135,6 +1230,31 @@ const apiCallsMixin = {
         const {data} = await axios.post(`/cgi/get_metadata_from_geo.cgi`, convertToFormData(payload));
         return data;
     },
+
+    /**
+     * Fetches Gosling display data for a given dataset, gene symbol, and genome.
+     *
+     * @async
+     * @param {string} datasetId - The ID of the dataset to fetch data from.
+     * @param {object} plotConfig - The configuration object for the Gosling plot.
+     * @param {boolean} [zoom=false] - Whether to enable zoom in the display.
+     * @param {object} [otherOpts={}] - Additional options for the request.
+     * @returns {Promise<Object>} The data returned from the Gosling display API.
+     */
+    async fetchGoslingDisplay(datasetId, plotConfig, zoom=false, otherOpts={}) {
+        const urlParams = new URLSearchParams();
+        const {gene_symbol: geneSymbol, assembly, hubUrl} = plotConfig;
+
+        urlParams.append('gene', geneSymbol);
+        urlParams.append('assembly', assembly);
+        urlParams.append('hub_url', hubUrl);
+        urlParams.append('zoom', zoom);
+
+        // JSON is returned
+        const {data} = await axios.get(`/api/plot/${datasetId}/gosling?${urlParams.toString()}`, otherOpts);
+        return data;
+    },
+
     /**
      * Fetches H5ad info from the server.
      * @param {string} datasetId - The ID of the dataset.
@@ -1162,7 +1282,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the fetched ortholog data.
      */
     async fetchOrthologs(datasetId, geneSymbols, geneOrganismId=null) {
-        const payload = { session_id: this.sessionId, gene_symbols:geneSymbols, gene_organism_id: geneOrganismId };
+        const payload = { session_id: apiCallsMixin.sessionId, gene_symbols:geneSymbols, gene_organism_id: geneOrganismId };
         const {data} = await axios.post(`/api/h5ad/${datasetId}/orthologs`, payload);
         return data;
     },
@@ -1199,7 +1319,7 @@ const apiCallsMixin = {
      */
     async fetchPlotlyData(datasetId, analysis, plotType, plotConfig, otherOpts={}) {
         // NOTE: gene_symbol should already be already passed to plotConfig
-        const payload = { ...plotConfig, plot_type: plotType, analysis, colorblind_mode: this.colorblindMode };
+        const payload = { ...plotConfig, plot_type: plotType, analysis, colorblind_mode: apiCallsMixin.colorblindMode };
         const {data} = await axios.post(`/api/plot/${datasetId}`, payload, otherOpts);
         return data;
     },
@@ -1212,16 +1332,17 @@ const apiCallsMixin = {
      * @param {string} patternSource - The source of the pattern.
      * @param {string} algorithm - The algorithm used for projection.
      * @param {string} gctype - The type of gene cart.
+     * @param {boolean} [zscore=false] - Indicates whether to apply zscore scaling.
      * @param {Object} [otherOpts={}] - Additional options for the request.
      * @returns {Promise} - A promise that resolves with the fetched data.
      */
-    async fetchProjection(datasetId, projectionId, patternSource, algorithm, gctype, otherOpts={}) {
-        const payload = { session_id: this.sessionId, projection_id: projectionId, genecart_id: patternSource, algorithm, scope: gctype};
-        const {data} = await axios.post(`api/projectr/${datasetId}`, payload, otherOpts);
+    async fetchProjection(datasetId, projectionId, patternSource, algorithm, gctype, zscore, otherOpts={}) {
+        const payload = { session_id: apiCallsMixin.sessionId, projection_id: projectionId, genecart_id: patternSource, algorithm, scope: gctype, zscore };
+        const {data} = await axios.post(`/api/projectr/${datasetId}`, payload, otherOpts);
         return data;
     },
 
-    
+
     /**
      * Fetches shared dataset and layout data from the server.
      *
@@ -1230,7 +1351,7 @@ const apiCallsMixin = {
      * @returns {Promise<Object>} A promise that resolves to the shared data.
      */
     async fetchShareData(datasetShareId, layoutShareId) {
-        const payload = { session_id: this.sessionId, dataset_share_id: datasetShareId, layout_share_id: layoutShareId };
+        const payload = { session_id: apiCallsMixin.sessionId, dataset_share_id: datasetShareId, layout_share_id: layoutShareId };
         const {data} = await axios.post("/cgi/get_shared_info.cgi", convertToFormData(payload));
         return data;
     },
@@ -1239,17 +1360,29 @@ const apiCallsMixin = {
      * Fetches SVG data for a given dataset, gene symbol, and projection ID.
      * @param {string} datasetId - The ID of the dataset.
      * @param {string} geneSymbol - The gene symbol.
-     * @param {string} projectionId - The ID of the projection.
+     * @param {number} vmax - The maximum value for the color scale.
+     * @param {number} vmin - The minimum value for the color scale.
+     * @param {string} [projectionId=null] - The ID of the projection (optional).
+     * @param {number|null} [expressionMinClip=null] - Minimum expression clipping value (optional).
      * @param {Object} [otherOpts={}] - Additional options for the GET request.
      * @returns {Promise<any>} - A promise that resolves to the fetched data.
      */
-    async fetchSvgData(datasetId, geneSymbol, projectionId=null, otherOpts={}) {
+    async fetchSvgData(datasetId, geneSymbol, vmax=null, vmin=null, projectionId=null, expressionMinClip=null, otherOpts={}) {
 
         // create URL Params for the GET request
         const urlParams = new URLSearchParams();
         urlParams.append('gene', geneSymbol);
         if (projectionId) {
             urlParams.append('projection_id', projectionId);
+        }
+        if (expressionMinClip !== null) {
+            urlParams.append('expression_min_clip', expressionMinClip);
+        }
+        if (vmax !== null) {
+            urlParams.append('vmax', vmax);
+        }
+        if (vmin !== null) {
+            urlParams.append('vmin', vmin);
         }
 
         // fetch the data
@@ -1267,7 +1400,7 @@ const apiCallsMixin = {
      */
     async fetchSpatialScanpyImage(datasetId, analysis, plotConfig, otherOpts={}) {
         // NOTE: gene_symbol should already be already passed to plotConfig
-        const payload = { ...plotConfig, analysis, colorblind_mode: this.colorblindMode };
+        const payload = { ...plotConfig, analysis, colorblind_mode: apiCallsMixin.colorblindMode };
         const {data} = await axios.post(`/api/plot/${datasetId}/spatial_scanpy`, payload, otherOpts);
         return data;
     },
@@ -1282,8 +1415,23 @@ const apiCallsMixin = {
      */
     async fetchTsneImage(datasetId, analysis, plotType, plotConfig, otherOpts={}) {
         // NOTE: gene_symbol should already be already passed to plotConfig
-        const payload = { ...plotConfig, plot_type: plotType, analysis, colorblind_mode: this.colorblindMode };
+        const payload = { ...plotConfig, plot_type: plotType, analysis, colorblind_mode: apiCallsMixin.colorblindMode };
         const {data} = await axios.post(`/api/plot/${datasetId}/tsne`, payload, otherOpts);
+        return data;
+    },
+    /**
+     * Fetches the multigene TSNE image for a given dataset, analysis, plot type, plot configuration, and other options.
+     * @param {string} datasetId - The ID of the dataset.
+     * @param {string} analysis - The analysis type.
+     * @param {string} plotType - The type of plot.
+     * @param {object} plotConfig - The plot configuration.
+     * @param {object} [otherOpts={}] - Additional options for the request.
+     * @returns {Promise<any>} - A promise that resolves to the fetched data.
+     */
+    async fetchMgTsneImage(datasetId, analysis, plotType, plotConfig, otherOpts={}) {
+        // NOTE: gene_symbol should already be already passed to plotConfig
+        const payload = { ...plotConfig, plot_type: plotType, analysis, colorblind_mode: apiCallsMixin.colorblindMode };
+        const {data} = await axios.post(`/api/plot/${datasetId}/mg_tsne`, payload, otherOpts);
         return data;
     },
     /**
@@ -1292,14 +1440,19 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the fetched data.
      */
     async fetchUserHistoryEntries(numEntries) {
-        const payload = { session_id: this.sessionId, num_entries: numEntries };
+        const payload = { session_id: apiCallsMixin.sessionId, num_entries: numEntries };
         const {data} = await axios.post("/cgi/get_user_history_entries.cgi", convertToFormData(payload));
         return data;
     },
-
-    async finalizeExpressionUpload(formData) {
-        const payload = new URLSearchParams(formData);
-        const {data} = await axios.post("/cgi/finalize_uploaded_expression_dataset.cgi", payload);
+    /**
+     * Finalizes the upload of an expression dataset by sending form data to the server.
+     *
+     * @async
+     * @param {object} payload - The payload containing the necessary data for finalizing the upload.
+     * @returns {Promise<any>} The response data from the server after finalizing the upload.
+     */
+    async finalizeExpressionUpload(payload) {
+        const {data} = await axios.post("/cgi/finalize_uploaded_expression_dataset.cgi", convertToFormData(payload));
         return data;
     },
     /**
@@ -1307,7 +1460,7 @@ const apiCallsMixin = {
      * @returns {Promise<Object>} The session information.
      */
     async getSessionInfo() {
-        const payload = {session_id: this.sessionId};
+        const payload = {session_id: apiCallsMixin.sessionId};
         const {data} = await axios.post("/cgi/get_session_info.v2.cgi", convertToFormData(payload));
         return data;
     },
@@ -1327,8 +1480,39 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the parsed metadata.
      */
     async parseMetadataFile(formData) {
-        formData.append("session_id", this.sessionId);
+        formData.append("session_id", apiCallsMixin.sessionId);
         const {data} = await axios.post("/cgi/upload_expression_metadata.cgi", formData);
+        return data;
+    },
+    /**
+     * Prepare and send a request to fetch spatial panel data for a given dataset.
+     *
+     * This function creates a shallow copy of the provided plotConfig as the request
+     * payload and posts it to the server endpoint `/api/plot/{datasetId}/spatialPanel`.
+     * Note: plotConfig is expected to already include a `gene_symbol` property.
+     *
+     * @async
+     * @param {string|number} datasetId - Identifier for the dataset used in the API path.
+     * @param {Object} plotConfig - Configuration object for the plot. Must include `gene_symbol`.
+     * @param {Object} [otherOpts={}] - Optional Axios request configuration/options forwarded to axios.post.
+     * @returns {Promise<Object>} Resolves with the response data from the API.
+     * @throws {Error} Throws/rejects with the underlying Axios error if the request fails.
+     */
+    async prepSpatialPanelData(datasetId, plotConfig, otherOpts={}) {
+        // NOTE: gene_symbol should already be already passed to plotConfig
+        const payload = { ...plotConfig };
+        const {data} = await axios.post(`/api/plot/${datasetId}/spatialpanel`, payload, otherOpts);
+        return data;
+    },
+    /**
+     * Asynchronously polls the status of a Project R projection by its ID.
+     *
+     * @async
+     * @param {string|number} projectionId - The unique identifier of the Project R projection.
+     * @returns {Promise<Object>} A promise that resolves to the status data of the projection.
+     */
+    async pollProjectRStatus(projectionId) {
+        const {data} = await axios.get(`/api/projectr/${projectionId}/status`);
         return data;
     },
     /**
@@ -1339,7 +1523,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves with the response data.
      */
     async renameDatasetCollection(layoutShareId, collectionName) {
-        const payload = {session_id: this.sessionId, layout_share_id: layoutShareId, layout_name: collectionName};
+        const payload = {session_id: apiCallsMixin.sessionId, layout_share_id: layoutShareId, layout_name: collectionName};
         const {data} = await axios.post("cgi/rename_layout.cgi", convertToFormData(payload));
         return data;
     },
@@ -1357,7 +1541,7 @@ const apiCallsMixin = {
         const payload = {
             id: displayId,
             dataset_id: datasetId,
-            session_id: this.sessionId,
+            session_id: apiCallsMixin.sessionId,
             label,
             plot_type: plotType,
             plotly_config: JSON.stringify({
@@ -1382,7 +1566,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the response data.
      */
     async saveDatasetInfoChanges(datasetId, visibility, isDownloadable, title, pubmedId, geoId, lDesc) {
-        const payload = {session_id: this.sessionId, dataset_id: datasetId, visibility, is_downloadable: isDownloadable, title, pubmed_id: pubmedId, geo_id: geoId, ldesc: lDesc};
+        const payload = {session_id: apiCallsMixin.sessionId, dataset_id: datasetId, visibility, is_downloadable: isDownloadable, title, pubmed_id: pubmedId, geo_id: geoId, ldesc: lDesc};
         const {data} = await axios.post("/cgi/save_datasetinfo_changes.cgi", convertToFormData(payload));
         return data;
     },
@@ -1394,7 +1578,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the saved data.
      */
     async saveDefaultDisplay(datasetId, displayId, isMultigene=false) {
-        const payload = {display_id: displayId, session_id: this.sessionId, dataset_id: datasetId, is_multigene: isMultigene};
+        const payload = {display_id: displayId, session_id: apiCallsMixin.sessionId, dataset_id: datasetId, is_multigene: isMultigene};
         const {data} = await axios.post("/cgi/save_default_display.cgi", convertToFormData(payload));
         return data;
     },
@@ -1407,7 +1591,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves with the response data.
      */
     async saveDatasetCollectionArrangement(layoutShareId, layoutArrangement) {
-        const payload = {session_id: this.sessionId, layout_share_id: layoutShareId, layout_arrangement: JSON.stringify(layoutArrangement)};
+        const payload = {session_id: apiCallsMixin.sessionId, layout_share_id: layoutShareId, layout_arrangement: JSON.stringify(layoutArrangement)};
         const {data} = await axios.post("/cgi/save_layout_arrangement.cgi", convertToFormData(payload));
         return data;
     },
@@ -1422,7 +1606,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the response data.
      */
     async saveGeneListInfoChanges(gcId, visibility, title, organismId, ldesc) {
-        const payload = {session_id: this.sessionId, gc_id: gcId, visibility, title, organism_id: organismId, ldesc};
+        const payload = {session_id: apiCallsMixin.sessionId, gc_id: gcId, visibility, title, organism_id: organismId, ldesc};
         const {data} = await axios.post("/cgi/save_genecart_changes.cgi", convertToFormData(payload));
         return data;
     },
@@ -1432,7 +1616,7 @@ const apiCallsMixin = {
          * @returns {Promise<any>} - A promise that resolves to the saved data.
          */
     async saveUserDefaultOrgId(user) {
-        const payload = {session_id: this.sessionId, default_org_id: user.default_org_id};
+        const payload = {session_id: apiCallsMixin.sessionId, default_org_id: user.default_org_id};
         const {data} = await axios.post("/cgi/save_user_default_organism.cgi", convertToFormData(payload));
         return data;
     },
@@ -1443,7 +1627,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves with the response data from the server.
      */
     async setUserPrimaryDatasetCollection(layoutShareId) {
-        const payload = {session_id: this.sessionId, layout_share_id: layoutShareId};
+        const payload = {session_id: apiCallsMixin.sessionId, layout_share_id: layoutShareId};
         const {data} = await axios.post("/cgi/save_user_chosen_layout.cgi", convertToFormData(payload));
         return data;
     },
@@ -1456,7 +1640,7 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves to the updated data.
      */
     async updateDatasetCollectionVisibility(layoutShareId, newVisibility) {
-        const payload = {session_id: this.sessionId, layout_share_id: layoutShareId, visibility: newVisibility};
+        const payload = {session_id: apiCallsMixin.sessionId, layout_share_id: layoutShareId, visibility: newVisibility};
         const {data} = await axios.post("/cgi/update_layout_visibility.cgi", convertToFormData(payload));
         return data;
     },
@@ -1470,12 +1654,13 @@ const apiCallsMixin = {
      * @returns {Promise<any>} - A promise that resolves with the updated data.
      */
     async updateShareId(shareId, newShareId, scope) {
-        const payload = {session_id: this.sessionId, share_id: shareId, new_share_id: newShareId, scope};
+        const payload = {session_id: apiCallsMixin.sessionId, share_id: shareId, new_share_id: newShareId, scope};
         const {data} = await axios.post("/cgi/update_share_id.cgi", convertToFormData(payload));
         return data;
     }
 
 }
+
 
 /* Add custom footer for DHART */
 const footer = document.querySelectorAll('footer').item(0)
@@ -1508,3 +1693,30 @@ footer.innerHTML = `
       <div style="flex-grow: 1">
       </div>
     </div>`;
+
+// Export all the curator-specific functions and classes (named export)
+export {
+    apiCallsMixin,
+    createToast,
+    escapeHtml,
+    getCurrentUser,
+    getDomainPreferences,
+    getRootUrl,
+    logErrorInConsole,
+    registerPageSpecificLoginUIUpdates,
+    initCommonUI,
+    getUrlParameter,
+    guid,
+    rebindUrlParam,
+    disableAndHideElement,
+    enableAndShowElement,
+    commonDateTime,
+    copyToClipboard,
+    convertToFormData,
+    trigger,
+    openModal,
+    closeModal,
+    insertVersionedCSS,
+    insertVersionedJS,
+};
+
