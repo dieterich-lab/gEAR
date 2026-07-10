@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python3
 '''
 Given a dataset's ID, this allows for the download of that dataset's tarball
 or H5AD file.

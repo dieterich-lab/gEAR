@@ -1,4 +1,4 @@
-#!/opt/bin/python3
+#!/usr/local/envs/dhart/bin/python3
 
 """
 Given both dataset and layout share IDs checks to see if there's a owner-curated
