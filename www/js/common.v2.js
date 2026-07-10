@@ -1669,35 +1669,37 @@ const apiCallsMixin = {
 
 /* Add custom footer for DHART */
 const footer = document.querySelectorAll('footer').item(0)
-footer.innerHTML = `
-    <!-- Add custom footer for DHART -->
-    <div style="display: flex">
-      <div>
-        <p style="font-size: 0.75rem">
-          DHART is based on:<br />
-          gEAR: Gene Expression Analysis Resource portal for community-driven, multi-omic data exploration.<br />
-          Orvis J, et al. Nat Methods. 2021 Jun 25. <br />
-          doi: 10.1038/s41592-021-01200-9<br />
-          PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/34172972/" target="_blank">34172972</a>
-        </p>
-      </div>
-      <div style="flex-grow: 1">
-      </div>
-      <div>
-        <a href="https://www.klinikum.uni-heidelberg.de/">
-          <img src="img/by_domain/dhart/171029Logo_UKHD_dt_positiv_RGB.png" style="max-height:100px;" title="Heidelberg University Hospital"/>
-        </a>
-      </div>
-      <div style="flex-grow: 1">
-      </div>
-      <div>
-        <a href="https://dzhk.de/">
-          <img src="img/by_domain/dhart/dzhk.png" style="max-height:100px;" title="German Center for Cardiovascular Research"/>
-        </a>
-      </div>
-      <div style="flex-grow: 1">
-      </div>
-    </div>`;
+if ( footer ) {
+    footer.innerHTML = `
+        <!-- Add custom footer for DHART -->
+        <div style="display: flex">
+          <div>
+            <p style="font-size: 0.75rem">
+              DHART is based on:<br />
+              gEAR: Gene Expression Analysis Resource portal for community-driven, multi-omic data exploration.<br />
+              Orvis J, et al. Nat Methods. 2021 Jun 25. <br />
+              doi: 10.1038/s41592-021-01200-9<br />
+              PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/34172972/" target="_blank">34172972</a>
+            </p>
+          </div>
+          <div style="flex-grow: 1">
+          </div>
+          <div>
+            <a href="https://www.klinikum.uni-heidelberg.de/">
+              <img src="img/by_domain/dhart/171029Logo_UKHD_dt_positiv_RGB.png" style="max-height:100px;" title="Heidelberg University Hospital"/>
+            </a>
+          </div>
+          <div style="flex-grow: 1">
+          </div>
+          <div>
+            <a href="https://dzhk.de/">
+              <img src="img/by_domain/dhart/dzhk.png" style="max-height:100px;" title="German Center for Cardiovascular Research"/>
+            </a>
+          </div>
+          <div style="flex-grow: 1">
+          </div>
+        </div>`;
+}
 
 // Export all the curator-specific functions and classes (named export)
 export {
