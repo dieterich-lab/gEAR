@@ -121,6 +121,9 @@ const initCommonUI = async () => {
         window.location.replace('./index.html');
     });
 
+/*
+ * Not used in DHART
+
     document.getElementById('citation-copy').addEventListener('click', () => {
         const citationText = `gEAR: Gene Expression Analysis Resource portal for community-driven, multi-omic data exploration.
 Orvis J, et al. Nat Methods. 2021 Jun 25.
@@ -134,6 +137,8 @@ PMID: 34172972`;
             }
         })
     });
+
+*/
 
     /**
      * Controls for the left navbar visibility
