@@ -409,7 +409,7 @@ class Metadata:
                                              geo_id, is_public, ldesc, dtype, schematic_image,
                                              share_uid, default_data_format, status, has_h5ad, platform_id,
                                              instrument_model, library_selection, library_source, library_strategy, contact_email,
-                                             contact_institute, contact_name, annotation_source, annotation_release, assembly, default_plot_type
+                                             contact_institute, contact_name, annotation_source, annotation_release, assembly, default_plot_type,
                                              user_pii_affirmed))
             cnx.commit()
         except mysql.connector.Error as err:
