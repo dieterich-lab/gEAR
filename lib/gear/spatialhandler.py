@@ -1128,7 +1128,8 @@ class VisiumHDHandler(SpatialHandler):
     @property
     def coordinate_system(self) -> str:
         """Returns the coordinate system used by Visium HD datasets."""
-        return "downscaled_hires"
+        #return "downscaled_hires"
+        return "spatialdata_downscaled_hires"
 
     @property
     def region_id(self) -> str:
