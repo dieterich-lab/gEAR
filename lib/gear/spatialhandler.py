@@ -608,7 +608,7 @@ class SpatialHandler(ABC):
             self.sdata.tables[self.NORMALIZED_TABLE_NAME].X = self.sdata.tables[self.NORMALIZED_TABLE_NAME].X.astype("float")
 
             # Will fail if file already exists
-            self.sdata.write(file_path=filepath, overwrite=overwrite)
+            self.sdata.write(file_path=filepath, overwrite=True)
         except Exception as err:
             # remove the directory if it was created
             # if os.path.exists(filepath):
