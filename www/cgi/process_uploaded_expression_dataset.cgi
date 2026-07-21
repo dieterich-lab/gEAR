@@ -29,6 +29,9 @@ import pandas as pd
 import scanpy as sc
 from scipy import sparse
 
+import zarr
+zarr.config.set({"array.rectilinear_chunks": True})     # Rectilinear chunk grids are disabled by default thus we enable them here.  This is required for the spatial zarr files to be read by the spatial handler classes. 
+
 # This has a huge dependency stack of libraries. Occasionally, one of them has methods
 #  which prints debugging information on STDOUT, killing this CGI.  So here we redirect
 #  STDOUT until we need it.
