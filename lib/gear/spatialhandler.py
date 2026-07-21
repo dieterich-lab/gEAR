@@ -531,7 +531,7 @@ class SpatialHandler(ABC):
             - Intended for workflows that combine image-based spatial annotations with single-cell-style
             expression preprocessing.
         """
-        obs = self.sdata.tables["table"].obs
+        obs = self.sdata.tables[self.NORMALIZED_TABLE_NAME].obs
 
         if not ("spatial1" in obs.columns and "spatial2" in obs.columns):
             self.subset_sdata()
@@ -541,8 +541,8 @@ class SpatialHandler(ABC):
             # Each observation has an associated polygon "shape" in the image space, and we can get the centroid of that shape
             self.merge_centroids_with_obs()
 
-        # Run the single-cell workbench steps on the spatial_obj.tables["table"] (AnnData object) using default parameters
-        adata = self.sdata.tables["table"]
+        # Run the single-cell workbench steps on the spatial_obj.tables[self.NORMALIZED_TABLE_NAME] (AnnData object) using default parameters
+        adata = self.sdata.tables[self.NORMALIZED_TABLE_NAME]
 
         if "X_umap" in adata.obsm.keys():
             return self
@@ -560,7 +560,7 @@ class SpatialHandler(ABC):
         sc.pp.pca(adata)
         sc.pp.neighbors(adata)
         sc.tl.umap(adata)
-        self.sdata.tables["table"] = adata
+        self.sdata.tables[self.NORMALIZED_TABLE_NAME] = adata
         return self
 
     def subset_sdata(self) -> "SpatialHandler":
