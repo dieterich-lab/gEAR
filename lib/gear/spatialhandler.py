@@ -611,9 +611,9 @@ class SpatialHandler(ABC):
             self.sdata.write(file_path=filepath, overwrite=overwrite)
         except Exception as err:
             # remove the directory if it was created
-            if os.path.exists(filepath):
-                import shutil
-                shutil.rmtree(filepath)
+            # if os.path.exists(filepath):
+            #    import shutil
+            #    shutil.rmtree(filepath)
             raise Exception("Error occurred while writing to file: " + str(err))
         return self
 
