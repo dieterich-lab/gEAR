@@ -392,7 +392,7 @@ class SpatialHandler(ABC):
             centroids_df = centroids_df.compute()
 
         # Add the centroid info to the AnnData table. Inner join in case location ID does not exist in observation
-        self.sdata.tables["table"].obs = dataframe.merge(centroids_df, on=self.region_id, how="inner")
+        self.sdata.tables["table"].obs = dataframe.merge(centroids_df, on="location_id", how="inner")
         return self
 
     def scale_and_translate_sdata(self, set_to_zero=True, apply_scale=True) -> "SpatialHandler":
