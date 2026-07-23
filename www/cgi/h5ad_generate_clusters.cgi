@@ -79,11 +79,11 @@ def main():
     # Compute tSNE and plot
     if compute_clusters == 'true':
 
-        adata.obs.drop(columns=["louvain", "orig_louvain"], errors="ignore", inplace=True)
+        # adata.obs.drop(columns=["louvain", "orig_louvain"], errors="ignore", inplace=True) # need this to use precomputed clusters
 
         try:
             # Added flavor and n_iterations to address warnings about future defaults
-            sc.tl.leiden(adata, resolution=resolution, flavor="igraph", n_iterations=2)
+            # sc.tl.leiden(adata, resolution=resolution, flavor="igraph", n_iterations=2)
 
             # rename the leiden column to louvain to not break things elsewhere
             # ? perhaps we should rename as "clustering" or something more generic
@@ -91,7 +91,7 @@ def main():
         except Exception as e:
             print("Switching to louvain algorithm, leiden failed", file=sys.stderr)
             print("Error: ", e, file=sys.stderr)
-            sc.tl.louvain(adata, resolution=resolution, flavor="igraph")
+            # sc.tl.louvain(adata, resolution=resolution, flavor="igraph")
 
         adata.obs["orig_louvain"] = adata.obs["louvain"].astype(int)   # Copy cluster ID so it's easier to rename categories
         adata.write(dest_datafile_path)
