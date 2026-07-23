@@ -1025,12 +1025,12 @@ document.querySelector(UI.btnApplyPrimaryFilterElt).addEventListener("click", as
 });
 
 // QC by Mito
- //document.querySelector(UI.btnDoAnalysisQcByMitoElt).addEventListener("click", async (event) => {
-  //   event.target.classList.add("is-loading");
-  //   // Run the QC by Mito analysis
-  //   await currentAnalysis.qcByMito.runAnalysis(0);
-  //   event.target.classList.remove("is-loading");
- //});
+ document.querySelector(UI.btnDoAnalysisQcByMitoElt).addEventListener("click", async (event) => {
+     event.target.classList.add("is-loading");
+     // Run the QC by Mito analysis
+    // await currentAnalysis.qcByMito.runAnalysis(0);
+    event.target.classList.remove("is-loading");
+});
 
 document.querySelector(UI.btnQbmSaveElt).addEventListener("click", async (event) => {
     event.target.classList.add("is-loading");
