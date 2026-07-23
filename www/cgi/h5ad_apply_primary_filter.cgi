@@ -124,7 +124,7 @@ def main():
     if not was_filtered:
         sc.pp.filter_cells(adata, min_genes=0)
 
-    # adata.write(dest_datafile_path)
+    adata.write(dest_datafile_path)
     (n_obs, n_genes) = adata.shape
 
     sc.settings.figdir = dest_directory + "/figures"
