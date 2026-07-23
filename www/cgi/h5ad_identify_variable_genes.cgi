@@ -87,6 +87,7 @@ def main():
     if not os.path.exists(dest_directory):
         os.makedirs(dest_directory)
 
+    """ # commenting since normalization, log, and highly variable gene selection is now done in the backend
     # Per-cell normalize the data matrix, identify highly-variable genes and compute logarithm.
     sc.pp.normalize_total(adata, target_sum=norm_counts_per_cell)
 
@@ -101,6 +102,7 @@ def main():
     else:
         sc.pp.highly_variable_genes(
             adata, flavor=flavor, min_mean=min_mean, max_mean=max_mean, min_disp=min_dispersion)
+    """
 
     ## I don't see how to get the save options to specify a directory
     os.chdir(os.path.dirname(dest_datafile_path))
