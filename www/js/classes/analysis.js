@@ -1099,10 +1099,11 @@ class AnalysisStepPrimaryFilter {
             document.querySelector(UI.selectedDatasetShapeFilteredContainer).classList.remove("is-hidden");
 
             document.querySelector(UI.btnQbmSaveElt).disabled = false;
-            document.querySelector(UI.selectVariableGenesSectionSuccessElt).classList.remove("is-hidden");
-            passStepWithHref(UI.selectVariableGenesSection);
-            blockAnalysisStep(UI.selectVariableGenesSection);
-            openNextAnalysisStep([UI.pcaSection], null, true);
+            document.querySelector(UI.qcByMitoSectionSuccessElt).classList.remove("is-hidden");
+            blockAnalysisStep(UI.primaryFilterSection);
+            passStepWithHref(UI.qcByMitoSection);
+            blockAnalysisStep(UI.qcByMitoSection);
+            openNextAnalysisStep([UI.selectVariableGenesSection], null, true);
         }
 
         const params = {
