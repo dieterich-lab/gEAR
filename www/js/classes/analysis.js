@@ -1098,6 +1098,7 @@ class AnalysisStepPrimaryFilter {
             document.querySelector(UI.selectedDatasetShapeFilteredElt).textContent = `${this.filteredGeneCount} genes x ${this.filteredCellCount} obs`;
             document.querySelector(UI.selectedDatasetShapeFilteredContainer).classList.remove("is-hidden");
 
+            document.querySelector(UI.btnQbmSaveElt).disabled = false;
         }
 
         const params = {
