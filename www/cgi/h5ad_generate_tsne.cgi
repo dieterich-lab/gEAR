@@ -99,6 +99,7 @@ def main():
 
     dest_datafile_path = ana.dataset_path
 
+    """ commented as this is already calculated in the backend and saved in the h5ad file. So no need to calculate it again here.
     if compute_neighbors == 1:
         sc.pp.neighbors(adata, n_pcs=n_pcs, n_neighbors=n_neighbors)
 
@@ -107,6 +108,7 @@ def main():
 
     if compute_umap == 1:
         sc.tl.umap(adata, maxiter=500)
+    """
 
     # If any of the above steps were done, save the adata object
     if compute_neighbors == 1 or compute_tsne == 1 or compute_umap == 1:
