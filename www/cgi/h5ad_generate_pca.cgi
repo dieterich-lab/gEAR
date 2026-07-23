@@ -105,7 +105,7 @@ def main():
 
     # Compute PCA and make a scatter plot.
     if compute_pca == 'true':
-        sc.tl.pca(adata, svd_solver='arpack')
+        # sc.tl.pca(adata, svd_solver='arpack')
         adata.obsm['X_pca'] *= -1  # multiply by -1 to match Seurat R
         adata.write(dest_datafile_path)
     else:
