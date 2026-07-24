@@ -118,7 +118,7 @@ def main():
 
         # TODO: add support for 'method' argument here, logreg, t-test, etc.'
         #print("DEBUG: For dataset {0} plotting with cluster_method: {1}".format(dataset_id, cluster_method), file=sys.stderr)
-        sc.tl.rank_genes_groups(adata, cluster_method)
+        # sc.tl.rank_genes_groups(adata, cluster_method) # commented because this is already calculated in the backend and saved in the h5ad file. So no need to calculate it again here.
         adata.write(dest_datafile_path)
 
         ## I don't see how to get the save options to specify a directory
@@ -127,8 +127,9 @@ def main():
 
         #print("DEBUG: dataset_id:{0} wrote image file to: {1}".format(dataset_id, dest_datafile_dir), file=sys.stderr)
 
-        # The sharey parameter here controls whether all axes have the same scale
-        sc.pl.rank_genes_groups(adata, n_genes=n_genes, gene_symbols='gene_symbol', sharey=False, save='.png') # type: ignore
+        ## The sharey parameter here controls whether all axes have the same scale
+        # this is now commented because this is already calculated in the backend and saved in the h5ad file. So no need to calculate it again here.
+        # sc.pl.rank_genes_groups(adata, n_genes=n_genes, gene_symbols='gene_symbol', sharey=False, save='.png') # type: ignore
 
     df_json_str = pd.DataFrame(
         adata.uns['rank_genes_groups']['names']
