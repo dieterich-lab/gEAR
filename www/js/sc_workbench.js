@@ -969,6 +969,7 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
     currentAnalysis.analysisSessionId = selectedOption.dataset.analysisSessionId;
 
     await currentAnalysis.getStoredAnalysis();    // await-able
+    await currentAnalysis.primaryFilter.applyPrimaryFilter(); 
 
     if (currentAnalysis.type === 'primary') {
         document.querySelector(UI.analysisPrimaryNotificationElt).classList.remove("is-hidden");
@@ -1017,12 +1018,14 @@ document.querySelector(UI.btnLabeledTsneRunElt).addEventListener("click", async 
 
 // Primary Filter
 
+/*
 document.querySelector(UI.btnApplyPrimaryFilterElt).addEventListener("click", async (event) => {
     event.target.classList.add("is-loading");
     // Apply the primary filter to the dataset
     await currentAnalysis.primaryFilter.applyPrimaryFilter();
     event.target.classList.remove("is-loading");
 });
+*/
 
 // QC by Mito
  document.querySelector(UI.btnDoAnalysisQcByMitoElt).addEventListener("click", async (event) => {

@@ -906,28 +906,30 @@ class AnalysisStepPrimaryFilter {
         const originalAnalysisType = this.analysis.type;
         this.analysis.type = 'primary';
 
-        this.filterCellsLtNGenesSelected = document.querySelector(UI.filterCellsLtNGenesSelectedElt).checked;
+        this.filterCellsLtNGenesSelected = true ;
+        /*this.filterCellsLtNGenesSelected = document.querySelector(UI.filterCellsLtNGenesSelectedElt).checked;*/  // commented as the data is already filtered
         this.filterCellsLtNGenes = null;
         if (this.filterCellsLtNGenesSelected) {
-            this.filterCellsLtNGenes = document.querySelector(UI.filterCellsLtNGenesElt).value;
+            /*this.filterCellsLtNGenes = document.querySelector(UI.filterCellsLtNGenesElt).value;*/ // dummy value as the data is already filtered
+            this.filterCellsLtNGenes = 0;
         }
 
-        this.filterCellsGtNGenesSelected = document.querySelector(UI.filterCellsGtNGenesSelectedElt).checked;
+        this.filterCellsGtNGenesSelected = true ;
         this.filterCellsGtNGenes = null;
         if (this.filterCellsGtNGenesSelected) {
-            this.filterCellsGtNGenes = document.querySelector(UI.filterCellsGtNGenesElt).value;
+            this.filterCellsGtNGenes = 300;
         }
 
-        this.filterGenesLtNCellsSelected = document.querySelector(UI.filterGenesLtNCellsSelectedElt).checked;
+        this.filterGenesLtNCellsSelected =true ;
         this.filterGenesLtNCells = null;
         if (this.filterGenesLtNCellsSelected) {
-            this.filterGenesLtNCells = document.querySelector(UI.filterGenesLtNCellsElt).value;
+            this.filterGenesLtNCells = 3;
         }
 
-        this.filterGenesGtNCellsSelected = document.querySelector(UI.filterGenesGtNCellsSelectedElt).checked;
+        this.filterGenesGtNCellsSelected = true ;
         this.filterGenesGtNCells = null;
         if (this.filterGenesGtNCellsSelected) {
-            this.filterGenesGtNCells = document.querySelector(UI.filterGenesGtNCellsElt).value;
+            this.filterGenesGtNCells = 0;
         }
 
         try {
@@ -1036,7 +1038,7 @@ class AnalysisStepPrimaryFilter {
      */
     resetUI() {
         document.querySelector(UI.primaryFilterSection).classList.remove("is-hidden");
-
+        /*
         document.querySelector(UI.filterCellsGtNGenesElt).value = this.filterCellsGtNGenes;
         document.querySelector(UI.filterCellsLtNGenesElt).value = this.filterCellsLtNGenes
         document.querySelector(UI.filterGenesLtNCellsElt).value = this.filterGenesLtNCells;
@@ -1046,7 +1048,7 @@ class AnalysisStepPrimaryFilter {
         document.querySelector(UI.filterCellsLtNGenesSelectedElt).checked = this.filterCellsLtNGenesSelected;
         document.querySelector(UI.filterGenesGtNCellsSelectedElt).checked = this.filterGenesGtNCellsSelected;
         document.querySelector(UI.filterGenesLtNCellsSelectedElt).checked = this.filterGenesLtNCellsSelected;
-
+        */
         for (const elt of document.querySelectorAll(UI.primaryInitialPlotElts)) {
             elt.classList.remove("is-hidden");
         }
@@ -1090,10 +1092,12 @@ class AnalysisStepPrimaryFilter {
                 document.querySelector(UI.filterGenesGtNCellsSelectedElt).checked = true;
             }
 
+            /*
             document.querySelector(UI.filterCellsLtNGenesElt).value = this.filterCellsLtNGenes || 300;
             document.querySelector(UI.filterCellsGtNGenesElt).value = this.filterCellsGtNGenes;
             document.querySelector(UI.filterGenesLtNCellsElt).value = this.filterGenesLtNCells || 3;
             document.querySelector(UI.filterGenesGtNCellsElt).value = this.filterGenesGtNCells;
+            */ // not needed as the data is already filtered
 
             document.querySelector(UI.selectedDatasetShapeFilteredElt).textContent = `${this.filteredGeneCount} genes x ${this.filteredCellCount} obs`;
             document.querySelector(UI.selectedDatasetShapeFilteredContainer).classList.remove("is-hidden");
