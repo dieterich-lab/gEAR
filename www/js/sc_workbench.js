@@ -957,40 +957,6 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
 
         // Jump to the primary filter step
         document.querySelector(`a[href='${UI.primaryFilterSection}']`).click();
-
-        // Hide the manual input filtering options (disable UI inputs) and
-        // immediately apply the primary filter so the user skips the
-        // intermediate input step and lands on filtered dataset state.
-        // These elements are marked as resetable under the primary filter
-        // section via the UI.datasetInfoResetableElts selector.
-        document.querySelectorAll(UI.datasetInfoResetableElts).forEach((elt) => {
-            // use a class to visually hide inputs if present, and disable form controls
-            elt.classList.add('is-hidden');
-            if (elt.tagName === 'INPUT' || elt.tagName === 'SELECT' || elt.tagName === 'TEXTAREA' || elt.matches('button')) {
-                elt.disabled = true;
-            }
-        });
-
-        // Also hide the apply button if present
-        const applyBtn = document.querySelector(UI.btnApplyPrimaryFilterElt);
-        if (applyBtn) {
-            applyBtn.classList.add('is-hidden');
-            applyBtn.disabled = true;
-        }
-
-        // Auto-apply the primary filter so the workflow continues
-        try {
-            await currentAnalysis.primaryFilter.applyPrimaryFilter();
-        } catch (err) {
-            // if auto-apply fails, show the primary filter step so user can adjust
-            console.error('Auto-apply primary filter failed:', err);
-            // revert hiding so user can interact
-            document.querySelectorAll(UI.datasetInfoResetableElts).forEach((elt) => elt.classList.remove('is-hidden'));
-            if (applyBtn) {
-                applyBtn.classList.remove('is-hidden');
-                applyBtn.disabled = false;
-            }
-        }
         return;
     }
     createToast("Loading stored analysis", "is-info");
