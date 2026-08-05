@@ -1055,7 +1055,7 @@ class AnalysisStepPrimaryFilter {
         document.querySelector(UI.primaryTopGenesPlotContainer).classList.add("is-hidden");
 
         // hide previous shown elements
-        document.querySelector(UI.selectedDatasetShapeFilteredContainer).classList.add("is-hidden");
+        /* document.querySelector(UI.selectedDatasetShapeFilteredContainer).classList.add("is-hidden"); */ 
 
         // show the instructions
         document.querySelector(UI.primaryFilterInstructionsElt).classList.remove("is-hidden");
