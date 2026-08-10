@@ -1,7 +1,7 @@
 "use strict";
 
 import { Analysis, getAnalysisLabels, setAnalysisLabels } from "./classes/analysis.js";
-import { UI } from "./classes/analysis-ui.js";
+import { UI, openNextAnalysisStep } from "./classes/analysis-ui.js";
 import { Dataset } from "./classes/dataset.js";
 import { Gene, WeightedGene } from "./classes/gene.js";
 import { GeneCart, WeightedGeneCart } from "./classes/genecart.v2.js";
@@ -949,9 +949,9 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
         // manual patch adapted from analysis.js -> AnalysisStepPrimaryFilter::updateUIWithResults()
         const primaryFilter = currentAnalysis.primaryFilter;
 
-        document.querySelector("#selected-dataset-shape-filtered").textContent = `${primaryFilter.filteredGeneCount} genes x ${primaryFilter.filteredCellCount} obs`;
+        document.querySelector(UI.selectedDatasetShapeFiltered).textContent = `${primaryFilter.filteredGeneCount} genes x ${primaryFilter.filteredCellCount} obs`;
 
-        openNextAnalysisStep(["#select-variable-genes-s"], null, true);
+        openNextAnalysisStep([UI.selectVariableGenesSection], null, true);
 
         const params = {
             'analysis_id': currentAnalysis.id,
@@ -964,18 +964,18 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
         }
 
         currentAnalysis.placeAnalysisImage(
-            { 'params': params, 'title': 'Highest expressed genes', 'target': "#primary-top-genes-c" });
+            { 'params': params, 'title': 'Highest expressed genes', 'target': UI.primaryTopGenesContainer });
 
-        document.querySelector("#primary-top-genes-plot-c").classList.remove("is-hidden");
+        document.querySelector(UI.primaryTopGenesPlotContainer).classList.remove("is-hidden");
 
         // Now we can potentially save the analysis if it is a user one
         currentAnalysis.showHideAnalysisButtons();
 
 
-        passStepWithHref("#primary-filter-s");
-        openNextAnalysisStep(["#qc-by-mito-s"], null, true);
+        passStepWithHref(UI.primaryFilterSection, true);
+        openNextAnalysisStep([UI.qcByMitoSection], null, true);
 
-        document.querySelector("#primary-filter-s-success").classList.remove("is-hidden");
+        document.querySelector(UI.primaryFilterSuccessElt).classList.remove("is-hidden");
         // manual patch end
 
         document.querySelector(UI.deNovoStepsElt).classList.remove("is-hidden");
