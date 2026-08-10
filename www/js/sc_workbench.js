@@ -1011,6 +1011,16 @@ async function applyPrimaryFilter() {
     document.querySelector(UI.primaryTopGenesContainer).textContent = `${primaryFilter.filteredGeneCount} genes x ${primaryFilter.filteredCellCount} obs`;
     openNextAnalysisStep([UI.selectVariableGenesSection], null, true);
 
+    document.querySelector(UI.primaryTopGenesPlotContainer).classList.remove("is-hidden");
+
+    // Now we can potentially save the analysis if it is a user one
+    currentAnalysis.showHideAnalysisButtons();
+
+    passStepWithHref(UI.primaryFilterSection);
+    openNextAnalysisStep([UI.qcByMitoSection], null, true);
+
+    document.querySelector(UI.primaryFilterSectionSuccessElt).classList.remove("is-hidden");
+    await currentAnalysis.primaryFilter.applyPrimaryFilter();
     const params = {
         'analysis_id': currentAnalysis.id,
         'analysis_name': 'highest_expr_genes',
@@ -1019,22 +1029,11 @@ async function applyPrimaryFilter() {
         'session_id': currentAnalysis.analysisSessionId,
         // this saves the user from getting a cached image each time
         datetime: (new Date()).getTime()
-    }
-
+    };
     await currentAnalysis.placeAnalysisImage(
-        { 'params': params, 'title': 'Highest expressed genes', 'target': UI.primaryTopGenesContainer });
+        { 'params': params, 'title': 'Highest expressed genes', 'target': UI.primaryTopGenesContainer }
+    );
 
-    document.querySelector(UI.primaryTopGenesPlotContainer).classList.remove("is-hidden");
-
-    // Now we can potentially save the analysis if it is a user one
-    currentAnalysis.showHideAnalysisButtons();
-
-
-    passStepWithHref(UI.primaryFilterSection);
-    openNextAnalysisStep([UI.qcByMitoSection], null, true);
-
-    document.querySelector(UI.primaryFilterSectionSuccessElt).classList.remove("is-hidden");
-    await currentAnalysis.primaryFilter.applyPrimaryFilter();
 }
 
 // Labeled tSNE
