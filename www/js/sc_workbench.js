@@ -946,38 +946,6 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
             'datasetIsRaw': true}
         );
 
-        // manual patch adapted from analysis.js -> AnalysisStepPrimaryFilter::updateUIWithResults()
-        const primaryFilter = currentAnalysis.primaryFilter;
-
-        document.querySelector(UI.selectedDatasetShapeFiltered).textContent = `${primaryFilter.filteredGeneCount} genes x ${primaryFilter.filteredCellCount} obs`;
-
-        openNextAnalysisStep([UI.selectVariableGenesSection], null, true);
-
-        const params = {
-            'analysis_id': currentAnalysis.id,
-            'analysis_name': 'highest_expr_genes',
-            'analysis_type': currentAnalysis.type,
-            'dataset_id': currentAnalysis.dataset.id,
-            'session_id': currentAnalysis.analysisSessionId,
-            // this saves the user from getting a cached image each time
-            datetime: (new Date()).getTime()
-        }
-
-        await currentAnalysis.placeAnalysisImage(
-            { 'params': params, 'title': 'Highest expressed genes', 'target': UI.primaryTopGenesContainer });
-
-        document.querySelector(UI.primaryTopGenesPlotContainer).classList.remove("is-hidden");
-
-        // Now we can potentially save the analysis if it is a user one
-        currentAnalysis.showHideAnalysisButtons();
-
-
-        passStepWithHref(UI.primaryFilterSection);
-        openNextAnalysisStep([UI.qcByMitoSection], null, true);
-
-        document.querySelector(UI.primaryFilterSectionSuccessElt).classList.remove("is-hidden");
-        // manual patch end
-
         document.querySelector(UI.deNovoStepsElt).classList.remove("is-hidden");
         document.querySelector(UI.btnProgressGuideElt).classList.remove("is-hidden");
         // Reset the stepper
@@ -1001,8 +969,42 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
     currentAnalysis.analysisSessionId = selectedOption.dataset.analysisSessionId;
 
     await currentAnalysis.getStoredAnalysis();    // await-able
-    await currentAnalysis.primaryFilter.applyPrimaryFilter(); 
+    await currentAnalysis.primaryFilter.applyPrimaryFilter();
+    //
+    // manual patch adapted from analysis.js -> AnalysisStepPrimaryFilter::updateUIWithResults()
+    //
+    const primaryFilter = currentAnalysis.primaryFilter;
 
+    document.querySelector(UI.primaryTopGenesContainer).textContent = `${primaryFilter.filteredGeneCount} genes x ${primaryFilter.filteredCellCount} obs`;
+
+    openNextAnalysisStep([UI.selectVariableGenesSection], null, true);
+
+    const params = {
+        'analysis_id': currentAnalysis.id,
+        'analysis_name': 'highest_expr_genes',
+        'analysis_type': currentAnalysis.type,
+        'dataset_id': currentAnalysis.dataset.id,
+        'session_id': currentAnalysis.analysisSessionId,
+        // this saves the user from getting a cached image each time
+        datetime: (new Date()).getTime()
+    }
+
+    await currentAnalysis.placeAnalysisImage(
+        { 'params': params, 'title': 'Highest expressed genes', 'target': UI.primaryTopGenesContainer });
+
+    document.querySelector(UI.primaryTopGenesPlotContainer).classList.remove("is-hidden");
+
+    // Now we can potentially save the analysis if it is a user one
+    currentAnalysis.showHideAnalysisButtons();
+
+
+    passStepWithHref(UI.primaryFilterSection);
+    openNextAnalysisStep([UI.qcByMitoSection], null, true);
+
+    document.querySelector(UI.primaryFilterSectionSuccessElt).classList.remove("is-hidden");
+    //
+    // manual patch end
+    //
     if (currentAnalysis.type === 'primary') {
         document.querySelector(UI.analysisPrimaryNotificationElt).classList.remove("is-hidden");
         document.querySelector(UI.analysisActionContainer).classList.add("is-hidden");
