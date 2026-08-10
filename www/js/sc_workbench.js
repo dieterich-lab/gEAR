@@ -954,6 +954,7 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
         // Jump to the primary filter step
         document.querySelector(UI.primaryFilterSection).click();
         document.querySelector(`a[href='${UI.primaryFilterSection}']`).click();
+        await applyPrimaryFilter();
         return;
     }
     createToast("Loading stored analysis", "is-info");
