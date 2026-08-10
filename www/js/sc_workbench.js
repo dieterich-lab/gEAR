@@ -947,9 +947,9 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
         );
 
         // manual patch adapted from analysis.js -> AnalysisStepPrimaryFilter::updateUIWithResults()
-        const primary_filter = currentAnalysis.primary_filter;
+        const primaryFilter = currentAnalysis.primaryFilter;
 
-        document.querySelector("#selected-dataset-shape-filtered").textContent = `${primary_filter.filteredGeneCount} genes x ${primary_filter.filteredCellCount} obs`;
+        document.querySelector("#selected-dataset-shape-filtered").textContent = `${primaryFilter.filteredGeneCount} genes x ${primaryFilter.filteredCellCount} obs`;
 
         openNextAnalysisStep(["#select-variable-genes-s"], null, true);
 
