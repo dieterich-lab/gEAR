@@ -951,12 +951,10 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
         // Reset the stepper
         resetStepperWithHrefs(UI.primaryFilterSection);
 
-        // Icon counter adjustment from if we were previously in primary analysis (and tSNE was calculated)
-        document.querySelector(`${UI.markerGenesSection} i`).classList.replace("mdi-numeric-3-circle", "mdi-numeric-9-circle")
-        document.querySelector(`${UI.markerGenesSection} i`).classList.replace("mdi-numeric-4-circle", "mdi-numeric-9-circle")
-
         // Jump to the primary filter step
+        document.querySelector(UI.primaryFilterSection).click();
         document.querySelector(`a[href='${UI.primaryFilterSection}']`).click();
+        await applyPrimaryFilter();
         return;
     }
     createToast("Loading stored analysis", "is-info");
@@ -969,42 +967,7 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
     currentAnalysis.analysisSessionId = selectedOption.dataset.analysisSessionId;
 
     await currentAnalysis.getStoredAnalysis();    // await-able
-    await currentAnalysis.primaryFilter.applyPrimaryFilter();
-    //
-    // manual patch adapted from analysis.js -> AnalysisStepPrimaryFilter::updateUIWithResults()
-    //
-    const primaryFilter = currentAnalysis.primaryFilter;
-
-    document.querySelector(UI.primaryTopGenesContainer).textContent = `${primaryFilter.filteredGeneCount} genes x ${primaryFilter.filteredCellCount} obs`;
-
-    openNextAnalysisStep([UI.selectVariableGenesSection], null, true);
-
-    const params = {
-        'analysis_id': currentAnalysis.id,
-        'analysis_name': 'highest_expr_genes',
-        'analysis_type': currentAnalysis.type,
-        'dataset_id': currentAnalysis.dataset.id,
-        'session_id': currentAnalysis.analysisSessionId,
-        // this saves the user from getting a cached image each time
-        datetime: (new Date()).getTime()
-    }
-
-    await currentAnalysis.placeAnalysisImage(
-        { 'params': params, 'title': 'Highest expressed genes', 'target': UI.primaryTopGenesContainer });
-
-    document.querySelector(UI.primaryTopGenesPlotContainer).classList.remove("is-hidden");
-
-    // Now we can potentially save the analysis if it is a user one
-    currentAnalysis.showHideAnalysisButtons();
-
-
-    passStepWithHref(UI.primaryFilterSection);
-    openNextAnalysisStep([UI.qcByMitoSection], null, true);
-
-    document.querySelector(UI.primaryFilterSectionSuccessElt).classList.remove("is-hidden");
-    //
-    // manual patch end
-    //
+    await applyPrimaryFilter();
     if (currentAnalysis.type === 'primary') {
         document.querySelector(UI.analysisPrimaryNotificationElt).classList.remove("is-hidden");
         document.querySelector(UI.analysisActionContainer).classList.add("is-hidden");
@@ -1036,6 +999,43 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
     }
 
 });
+
+//
+// manual patch adapted from analysis.js -> AnalysisStepPrimaryFilter::updateUIWithResults()
+//
+async function applyPrimaryFilter() {
+    // Icon counter adjustment from if we were previously in primary analysis (and tSNE was calculated)
+    document.querySelector(`${UI.markerGenesSection} i`).classList.replace("mdi-numeric-3-circle", "mdi-numeric-9-circle")
+    document.querySelector(`${UI.markerGenesSection} i`).classList.replace("mdi-numeric-4-circle", "mdi-numeric-9-circle")
+    const primaryFilter = currentAnalysis.primaryFilter;
+    document.querySelector(UI.primaryTopGenesContainer).textContent = `${primaryFilter.filteredGeneCount} genes x ${primaryFilter.filteredCellCount} obs`;
+    openNextAnalysisStep([UI.selectVariableGenesSection], null, true);
+
+    const params = {
+        'analysis_id': currentAnalysis.id,
+        'analysis_name': 'highest_expr_genes',
+        'analysis_type': currentAnalysis.type,
+        'dataset_id': currentAnalysis.dataset.id,
+        'session_id': currentAnalysis.analysisSessionId,
+        // this saves the user from getting a cached image each time
+        datetime: (new Date()).getTime()
+    }
+
+    await currentAnalysis.placeAnalysisImage(
+        { 'params': params, 'title': 'Highest expressed genes', 'target': UI.primaryTopGenesContainer });
+
+    document.querySelector(UI.primaryTopGenesPlotContainer).classList.remove("is-hidden");
+
+    // Now we can potentially save the analysis if it is a user one
+    currentAnalysis.showHideAnalysisButtons();
+
+
+    passStepWithHref(UI.primaryFilterSection);
+    openNextAnalysisStep([UI.qcByMitoSection], null, true);
+
+    document.querySelector(UI.primaryFilterSectionSuccessElt).classList.remove("is-hidden");
+    await currentAnalysis.primaryFilter.applyPrimaryFilter();
+}
 
 // Labeled tSNE
 
