@@ -6,7 +6,7 @@ import { Dataset } from "./classes/dataset.js";
 import { Gene, WeightedGene } from "./classes/gene.js";
 import { GeneCart, WeightedGeneCart } from "./classes/genecart.v2.js";
 import { DatasetTree } from "./classes/tree.js";
-import { resetStepperWithHrefs } from "./helpers/stepper-fxns.js";
+import {passStepWithHref, resetStepperWithHrefs} from "./helpers/stepper-fxns.js";
 import { apiCallsMixin, convertToFormData, createToast, disableAndHideElement, getCurrentUser, initCommonUI, logErrorInConsole, registerPageSpecificLoginUIUpdates } from "./common.v2.js";
 
 let currentAnalysis;
@@ -963,7 +963,7 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
             datetime: (new Date()).getTime()
         }
 
-        currentAnalysis.placeAnalysisImage(
+        await currentAnalysis.placeAnalysisImage(
             { 'params': params, 'title': 'Highest expressed genes', 'target': UI.primaryTopGenesContainer });
 
         document.querySelector(UI.primaryTopGenesPlotContainer).classList.remove("is-hidden");
@@ -972,10 +972,10 @@ document.querySelector(UI.analysisSelect).addEventListener("change", async (even
         currentAnalysis.showHideAnalysisButtons();
 
 
-        passStepWithHref(UI.primaryFilterSection, true);
+        passStepWithHref(UI.primaryFilterSection);
         openNextAnalysisStep([UI.qcByMitoSection], null, true);
 
-        document.querySelector(UI.primaryFilterSuccessElt).classList.remove("is-hidden");
+        document.querySelector(UI.primaryFilterSectionSuccessElt).classList.remove("is-hidden");
         // manual patch end
 
         document.querySelector(UI.deNovoStepsElt).classList.remove("is-hidden");
