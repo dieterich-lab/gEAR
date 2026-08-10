@@ -1018,14 +1018,12 @@ document.querySelector(UI.btnLabeledTsneRunElt).addEventListener("click", async 
 
 // Primary Filter
 
-/*
 document.querySelector(UI.btnApplyPrimaryFilterElt).addEventListener("click", async (event) => {
     event.target.classList.add("is-loading");
     // Apply the primary filter to the dataset
     await currentAnalysis.primaryFilter.applyPrimaryFilter();
     event.target.classList.remove("is-loading");
 });
-*/
 
 // QC by Mito
  document.querySelector(UI.btnDoAnalysisQcByMitoElt).addEventListener("click", async (event) => {
