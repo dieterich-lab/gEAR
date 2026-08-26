@@ -372,12 +372,26 @@ def bigbed_to_bed(bigbed_path: Path, outdir_path: Path) -> str:
             bb.close()
             raise
 
+        ''' commented because this part does not work. Intervals() only works with bigwig files and not bigbed
         with open(bed_path, 'w') as bed_out:
             for chrom, start, end, rest in bb.intervals():
                 bed_line = f"{chrom}\t{start}\t{end}\t{rest}\n"
                 bed_out.write(bed_line)
+        '''
+        # following is the patch to try to get bigbed running
+        chr_dict = bb.chroms()
+        all_entries = []
 
+        for key_chr in chr_dict.keys():
+            each_chr_entry = [[key_chr]+list(elem) for elem in bb.entries(key_chr, 0, chr_dict[key_chr])]
+            all_entries = all_entries + each_chr_entry
         bb.close()
+
+        with open(bed_path, 'w') as bed_out:
+            for each_item in all_entries:
+                bed_line = "\t".join(map(str, each_item)) + "\n"
+                bed_out.write(bed_line)
+        
         print(f"Converted {bigbed_path} to {bed_path}.", file=sys.stderr)
     except Exception as e:
         print(f"Error converting {bigbed_path} to bed: {e}", file=sys.stderr)
