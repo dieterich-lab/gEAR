@@ -24,8 +24,10 @@ import sys
 import zipfile
 from pathlib import Path
 
-import anndata
 import pandas as pd
+pd.options.mode.string_storage = "python"
+import anndata
+anndata.settings.allow_write_nullable_strings = True
 import scanpy as sc
 from scipy import sparse
 
